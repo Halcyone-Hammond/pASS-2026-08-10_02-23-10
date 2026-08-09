@@ -1,0 +1,355 @@
+using System.Collections.Generic;   // List<T>、Queue<T> 等泛型容器所在的命名空间
+using UnityEngine;                  // MonoBehaviour、Vector3、Material 等所有 Unity 核心类型
+
+// ============================================================
+// Board —— 棋盘: 整个原型的数据核心
+// ============================================================
+// 设计要点 (来自原型需求):
+//   * 棋盘是 4x5 的格子阵列, 放在场景的 XZ 平面上 (俯视时看起来像 2D 棋盘)
+//   * 用二维数组 BoardCell[5,4] 作为"唯一真相来源" (source of truth):
+//     所有关于"哪个格子被哪个棋子的哪个槽位占据"的信息都只从数组读取
+//   * 棋子移动/旋转/校验全部用数组计算, 完全不用物理 (刚体/碰撞) 来管规则
+//   * 只有"鼠标点哪里"这一步用到 Physics.Raycast (射线), 那是输入手段, 不是规则
+// ============================================================
+public class Board : MonoBehaviour
+{
+    // ---- 棋盘尺寸与关卡常量 ---------------------------------------------------
+    // 常量 (const) 在编译期就固定, 运行时不能改, 适合这类"写死的规则数字"
+    public const int W = 5;              // 列数 (x 方向): 棋盘宽 5 格
+    public const int H = 4;              // 行数 (z 方向): 棋盘高 4 格
+    public const int EntryX = 0;         // 入口所在列: 左边缘 (x = 0)
+    public const int EntryRow = 2;       // 入口所在行: 第 2 行 (z = 2)
+    public const int ExitX = W - 1;      // 出口所在列: 右边缘 (x = 4)
+    public const int ExitRow = 3;        // 出口所在行: 第 3 行 (z = 3)
+    public const int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS
+
+    // ---- 格子数据 -------------------------------------------------------------
+    // [System.Serializable] 让这个普通类可以被 Unity 序列化 (可显示在 Inspector、
+    // 可随场景保存)。BoardCell 记录"这一个格子"的占用信息。
+    [System.Serializable]
+    public class BoardCell
+    {
+        public Piece piece;   // 占据这个格子的棋子; null = 空格
+        public int slot = -1; // 该棋子的第几个槽位 (0~3) 占了这个格子; -1 = 无
+    }
+
+    // 核心数组: [x, z] 下标对应格子位置, 与设计文档里的 BoardCell[5,4] 一致。
+    // 注意: 数组元素是引用类型, 必须先 new 出每个 BoardCell 才能用 (见 Awake)。
+    public BoardCell[,] board = new BoardCell[W, H];
+    // 场景里所有棋子的清单 (含已放置的和托盘里的), 方便遍历查找
+    public List<Piece> allPieces = new List<Piece>();
+
+    // 棋盘视觉用的材质 (由 SceneBuilder 在搭建场景时赋值;
+    // 留了 null 兜底: BuildBoard 里会自动 new 一个, 防止忘赋导致粉红色)
+    public Material matTile, matEdge, matGround, matEntry, matExit;
+
+    // 静态单例: 全局唯一的"当前棋盘"引用, 其他脚本可以直接 Board.Instance 访问
+    public static Board Instance;
+
+    // ---- Unity 生命周期: Awake -------------------------------------------------
+    // Awake 在场景加载、脚本被激活时最先执行一次 (早于 Start)。
+    // 这里做两件事: 记录单例、给数组的每个元素 new 出 BoardCell。
+    void Awake()
+    {
+        Instance = this;
+        // 二维数组的每个元素都要实例化, 否则访问 board[x,z].piece 会空引用报错
+        for (int x = 0; x < W; x++)
+            for (int z = 0; z < H; z++)
+                board[x, z] = new BoardCell();
+    }
+
+    // 把棋子登记进 allPieces 清单 (用 Contains 防重复登记)
+    public void RegisterPiece(Piece p)
+    {
+        if (!allPieces.Contains(p)) allPieces.Add(p);
+    }
+
+    // ---- 坐标系转换 -------------------------------------------------------------
+    // 格子的中心在世界坐标哪里?
+    // 棋盘以原点为中心: x 从 -(W-1)/2 到 +(W-1)/2 (即 -2~2), z 从 -(H-1)/2 到 +(H-1)/2 (即 -1.5~1.5)
+    // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = (x - 2, 0, z - 1.5)
+    public Vector3 CellToWorld(int x, int z)
+    {
+        return new Vector3(x - (W - 1) * 0.5f, 0f, z - (H - 1) * 0.5f);
+    }
+
+    // 反过来: 世界坐标 -> 最近的格子坐标。
+    // 先把世界坐标平移回"以原点为中心"的坐标系, 再四舍五入取最近的整数格。
+    // 返回值 (bool) 表示这个点是否落在棋盘范围内; 格子坐标通过 out 参数带回。
+    // (C# 的 out 参数: 方法内必须给它赋值, 调用方用 out int x, out int z 接收)
+    public bool WorldToCell(Vector3 p, out int x, out int z)
+    {
+        x = Mathf.RoundToInt(p.x + (W - 1) * 0.5f);
+        z = Mathf.RoundToInt(p.z + (H - 1) * 0.5f);
+        return x >= 0 && x < W && z >= 0 && z < H;
+    }
+
+    // 计算: 某棋子放在 (px,pz) 且旋转为 rot 时, 它的 4 个槽位分别占据哪 4 个格子。
+    // 先问棋子要它的 4 个"槽位偏移" (见 Piece.GetOffsets), 再整体加上锚点坐标。
+    public Vector2Int[] GetCells(Piece p, int px, int pz, int rot)
+    {
+        Vector2Int[] offs = p.GetOffsets(rot);        // 4 个槽位相对锚点的偏移 (格子单位)
+        Vector2Int[] res = new Vector2Int[offs.Length]; // 存放结果的数组
+        for (int i = 0; i < offs.Length; i++)
+            res[i] = new Vector2Int(px + offs[i].x, pz + offs[i].y);
+        return res;
+    }
+
+    // 格子是否在棋盘范围内
+    bool InBounds(int x, int z) { return x >= 0 && x < W && z >= 0 && z < H; }
+
+    // ---- 放置 / 移除 -------------------------------------------------------------
+    // 尝试把棋子 p 放到 (px,pz), 旋转 rot。
+    // 规则: 全部 4 格必须在界内 (越界拒绝) 且全为空 (重叠拒绝)。
+    // 失败时不做任何修改 (调用方可以安全回退); 成功时更新数组 + 棋子的坐标/旋转 + 场景位置。
+    public bool TryPlace(Piece p, int px, int pz, int rot)
+    {
+        Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
+        for (int i = 0; i < cells.Length; i++)
+        {
+            int cx = cells[i].x, cz = cells[i].y;
+            if (!InBounds(cx, cz)) return false;         // 任一格越界 -> 拒绝
+            if (board[cx, cz].piece != null) return false; // 任一格被占 -> 拒绝
+        }
+        // 校验全部通过, 开始落子:
+        RemovePiece(p); // 先把棋子原来的占位清掉 (如果它之前放在别处), 避免自冲突
+        for (int i = 0; i < cells.Length; i++)
+        {
+            board[cells[i].x, cells[i].y].piece = p; // 记录"这格被棋子 p 占据"
+            board[cells[i].x, cells[i].y].slot = i;  // 记录"是 p 的第 i 个槽位"
+        }
+        p.bx = px; p.bz = pz; p.rot = rot; p.placed = true; // 更新棋子自身的数据
+        p.SetPlacedTransform(px, pz, rot);                  // 同步棋子在场景里的位置/旋转
+        return true;
+    }
+
+    // 把棋子从棋盘上拿下来: 清空它占据的所有格子, 并把 placed 标记为 false。
+    // (拖动棋子时调用: 先"拿起来", 松手再 TryPlace 放回去)
+    public void RemovePiece(Piece p)
+    {
+        if (!p.placed) return; // 本来就没在棋盘上, 直接返回
+        Vector2Int[] cells = GetCells(p, p.bx, p.bz, p.rot); // 用棋子记录的旧位置算出格子
+        for (int i = 0; i < cells.Length; i++)
+        {
+            int cx = cells[i].x, cz = cells[i].y;
+            if (InBounds(cx, cz) && board[cx, cz].piece == p) // 只清"确实是它占的"格子
+            {
+                board[cx, cz].piece = null;
+                board[cx, cz].slot = -1;
+            }
+        }
+        p.placed = false;
+    }
+
+    // ---- 通路判定 (BFS 广度优先搜索) ---------------------------------------------
+    // 规则: 上下左右四个方向相邻的"已占用格子"视为连通。
+    // 问题: 从入口格 (0,2) 出发, 能不能沿占用格走到出口格 (4,3)?
+    // BFS 的特点: 从起点逐层向外扩散 (像水波), 一定能找到路径, 且实现简单。
+    public bool FindPath(out List<BoardCell> path)
+    {
+        path = new List<BoardCell>();
+        if (board[EntryX, EntryRow].piece == null) return false; // 入口格没人占 -> 不通
+        if (board[ExitX, ExitRow].piece == null) return false;   // 出口格没人占 -> 不通
+
+        // vis 记录哪些格已访问 (防止绕圈); prevX/prevZ 记录每个格"从哪个格来的"
+        // (父节点), 用于最后从出口回溯出整条路径
+        bool[,] vis = new bool[W, H];
+        int[,] prevX = new int[W, H];
+        int[,] prevZ = new int[W, H];
+        for (int x = 0; x < W; x++)
+            for (int z = 0; z < H; z++) { prevX[x, z] = -1; prevZ[x, z] = -1; } // -1 = 还没有父节点
+
+        // 队列: BFS 的核心结构, 先进先出, 保证逐层扩散
+        Queue<Vector2Int> q = new Queue<Vector2Int>();
+        q.Enqueue(new Vector2Int(EntryX, EntryRow)); // 从入口开始
+        vis[EntryX, EntryRow] = true;
+
+        // 四个方向的增量: dx[0..3] 配 dz[0..3] 组成 (右、左、上、下) 四个移动方向
+        int[] dx = { 1, -1, 0, 0 };
+        int[] dz = { 0, 0, 1, -1 };
+        bool found = false;
+
+        while (q.Count > 0) // 队列不空就一直扩散
+        {
+            Vector2Int c = q.Dequeue();               // 取出队首格子
+            if (c.x == ExitX && c.y == ExitRow) { found = true; break; } // 到达出口!
+            for (int d = 0; d < 4; d++)               // 尝试向四个方向各走一步
+            {
+                int nx = c.x + dx[d], nz = c.y + dz[d];
+                if (!InBounds(nx, nz) || vis[nx, nz]) continue; // 越界或已访问 -> 跳过
+                if (board[nx, nz].piece == null) continue;      // 空格子不连通 -> 跳过
+                vis[nx, nz] = true;                             // 标记已访问
+                prevX[nx, nz] = c.x;                            // 记录父节点 (回溯用)
+                prevZ[nx, nz] = c.y;
+                q.Enqueue(new Vector2Int(nx, nz));              // 入队, 参与下一层扩散
+            }
+        }
+        if (!found) return false; // 全部扩散完都没到出口 -> 无通路
+
+        // 回溯: 从出口沿"父节点"指针一路走回入口, 得到完整的路径格子序列
+        int cx = ExitX, cz = ExitRow;
+        while (true)
+        {
+            path.Add(board[cx, cz]);                    // 把当前格加入路径
+            if (cx == EntryX && cz == EntryRow) break;  // 回到入口, 结束
+            int nx = prevX[cx, cz], nz = prevZ[cx, cz];
+            if (nx < 0) return false; // 安全保护: 正常流程下不会发生
+            cx = nx; cz = nz;
+        }
+        path.Reverse(); // 刚才是从出口往入口回溯的, 反转为 入口->出口 顺序
+        return true;
+    }
+
+    // ---- 提交结算 ---------------------------------------------------------------
+    // 需求: 入口 (左缘行2) -> 出口 (右缘行3) 存在通路, 且通路上 S 数值总和 >= 4。
+    // 输出三个 out 参数: 是否通过、S 总和、给人看的提示文字。
+    public void Submit(out bool pass, out int sSum, out string msg)
+    {
+        List<BoardCell> path;
+        if (!FindPath(out path)) // 先找通路
+        {
+            pass = false; sSum = 0;
+            msg = "FAIL — 无通路(入口 左缘行" + EntryRow + " → 出口 右缘行" + ExitRow + ")";
+            return;
+        }
+        sSum = 0;
+        for (int i = 0; i < path.Count; i++)
+        {
+            BoardCell bc = path[i];
+            // 只累加"S"槽位的数值: 每个棋子只有一个 S, 且 S 属于某个具体槽位。
+            // LetterAt(slot) 问"这个槽位当前是什么字母"; ValueOf(S) 问"S 现在的数值是多少"
+            if (bc.piece != null && bc.piece.LetterAt(bc.slot) == Piece.S)
+                sSum += bc.piece.ValueOf(Piece.S);
+        }
+        pass = sSum >= TargetS; // 达标?
+        msg = pass
+            ? "PASS — S=" + sSum + " ≥ " + TargetS
+            : "FAIL — S=" + sSum + " < " + TargetS;
+    }
+
+    // ================= 视觉搭建 (BuildBoard) =================
+    // 下面的内容属于"场景搭建工具": 由 SceneBuilder (编辑器菜单) 在编辑模式下调用,
+    // 生成棋盘的外观。运行时也可以调用, 所以同时兼容两种环境。
+
+    // 找一个可用的着色器 (Shader)。不同渲染管线里着色器名字不同:
+    //   Built-in 管线 -> "Standard"
+    //   URP 管线     -> "Universal Render Pipeline/Lit"
+    // 本项目用的是 URP, 但这里按顺序逐个尝试以兼容各种情况,
+    // 全都找不到时退回最基础的 Unlit/Color (纯色, 不受光照影响)。
+    public static Shader FindShader()
+    {
+        Shader s = Shader.Find("Standard");
+        if (s == null) s = Shader.Find("Universal Render Pipeline/Lit");
+        if (s == null) s = Shader.Find("URP/Lit");
+        if (s == null) s = Shader.Find("Legacy Shaders/Diffuse");
+        if (s == null) s = Shader.Find("Unlit/Color");
+        return s;
+    }
+
+    // 搭建棋盘的完整视觉:
+    //   - 一块深色地面 (Plane): 接收阴影, 让棋子阴影有地方落
+    //   - 20 个浅色地砖 (Cube): 摆成 5x4, 砖与砖之间的缝隙自然形成网格线
+    //   - 四条深色细条: 棋盘外边框 (深色边缘线, 建筑模型风)
+    //   - 入口/出口标记: 绿色小方块在入口格, 红色在出口格
+    //   - 一个"隐形"的 BoxCollider: 全场景唯一的碰撞体, 是鼠标射线唯一的目标
+    //     (棋子本身没有碰撞体, 这样射线永远只命中这一个 collider, 逻辑最简单)
+    // 注意: 在编辑模式下运行 (菜单点击) 时 Application.isPlaying 为 false,
+    // 所以删除组件要用 DestroyImmediate 而不是 Destroy (后者只在运行时有效)。
+    public void BuildBoard()
+    {
+        // 兜底: 如果材质没被赋值, 现场 new 一个 (避免物体变粉红色/报错)
+        if (matTile == null) matTile = new Material(FindShader()) { color = new Color(0.93f, 0.94f, 0.96f) };
+        if (matEdge == null) matEdge = new Material(FindShader()) { color = new Color(0.13f, 0.14f, 0.17f) };
+        if (matGround == null) matGround = new Material(FindShader()) { color = new Color(0.20f, 0.21f, 0.24f) };
+
+        // 地面 (接收阴影)
+        GameObject ground = CreatePrimitive(PrimitiveType.Plane); // 生成一个平面体
+        ground.name = "Ground";
+        ground.transform.SetParent(transform, false); // 挂到棋盘物体下; false = 保持局部坐标不变
+        ground.transform.localPosition = new Vector3(0f, -0.06f, 0.8f); // 略低于棋盘, 中心偏向托盘侧
+        ground.transform.localScale = new Vector3(4f, 1f, 4f); // Plane 原始 10x10, 放大 4 倍 = 40x40
+        SetMat(ground, matGround);
+
+        // 20 个地砖 (浅色, 缝隙自然形成网格线)
+        for (int x = 0; x < W; x++)
+        {
+            for (int z = 0; z < H; z++)
+            {
+                GameObject tile = CreatePrimitive(PrimitiveType.Cube); // 生成一个立方体
+                tile.name = "Tile_" + x + "_" + z;                    // 命名方便在 Hierarchy 里辨认
+                tile.transform.SetParent(transform, false);
+                tile.transform.localPosition = CellToWorld(x, z) + new Vector3(0f, 0.03f, 0f); // 中心在格心, 抬高 0.03 露出地面
+                tile.transform.localScale = new Vector3(0.96f, 0.06f, 0.96f); // 0.96 而非 1, 留出缝隙
+                SetMat(tile, matTile);
+            }
+        }
+
+        // 深色边框 (四条细立方体围一圈)
+        GameObject bN = CreatePrimitive(PrimitiveType.Cube);
+        bN.name = "BorderN"; bN.transform.SetParent(transform, false);
+        bN.transform.localPosition = new Vector3(0f, 0.03f, H * 0.5f + 0.04f);   // 北边 (z 正方向)
+        bN.transform.localScale = new Vector3(W + 0.16f, 0.08f, 0.08f); SetMat(bN, matEdge);
+
+        GameObject bS = CreatePrimitive(PrimitiveType.Cube);
+        bS.name = "BorderS"; bS.transform.SetParent(transform, false);
+        bS.transform.localPosition = new Vector3(0f, 0.03f, -(H * 0.5f + 0.04f)); // 南边
+        bS.transform.localScale = new Vector3(W + 0.16f, 0.08f, 0.08f); SetMat(bS, matEdge);
+
+        GameObject bE = CreatePrimitive(PrimitiveType.Cube);
+        bE.name = "BorderE"; bE.transform.SetParent(transform, false);
+        bE.transform.localPosition = new Vector3(W * 0.5f + 0.04f, 0.03f, 0f);    // 东边
+        bE.transform.localScale = new Vector3(0.08f, 0.08f, H + 0.16f); SetMat(bE, matEdge);
+
+        GameObject bW = CreatePrimitive(PrimitiveType.Cube);
+        bW.name = "BorderW"; bW.transform.SetParent(transform, false);
+        bW.transform.localPosition = new Vector3(-(W * 0.5f + 0.04f), 0.03f, 0f); // 西边
+        bW.transform.localScale = new Vector3(0.08f, 0.08f, H + 0.16f); SetMat(bW, matEdge);
+
+        // 入口 / 出口 标记 (绿 = 入口 左缘行2, 红 = 出口 右缘行3)
+        if (matEntry != null)
+        {
+            GameObject en = CreatePrimitive(PrimitiveType.Cube);
+            en.name = "EntryMarker"; en.transform.SetParent(transform, false);
+            en.transform.localPosition = CellToWorld(EntryX, EntryRow) + new Vector3(0f, 0.065f, 0f); // 贴在入口格地砖上
+            en.transform.localScale = new Vector3(0.28f, 0.05f, 0.28f); SetMat(en, matEntry);
+        }
+        if (matExit != null)
+        {
+            GameObject ex = CreatePrimitive(PrimitiveType.Cube);
+            ex.name = "ExitMarker"; ex.transform.SetParent(transform, false);
+            ex.transform.localPosition = CellToWorld(ExitX, ExitRow) + new Vector3(0f, 0.065f, 0f);
+            ex.transform.localScale = new Vector3(0.28f, 0.05f, 0.28f); SetMat(ex, matExit);
+        }
+
+        // 唯一的射线目标: 覆盖棋盘 + 下方拖放区 (tray)
+        // 为什么这样设计: 输入流程要求"鼠标 -> 射线 -> 世界点 -> 棋盘坐标",
+        // 一个覆盖整个交互区域的大 BoxCollider 让 raycast 永远有命中, 逻辑最简。
+        GameObject col = new GameObject("BoardCollider");
+        col.transform.SetParent(transform, false);
+        BoxCollider bc = col.AddComponent<BoxCollider>(); // 挂上盒形碰撞体 (它自己就是一个组件)
+        bc.center = new Vector3(0f, 0.05f, 0.8f);  // 中心略偏 z 正方向, 把下方托盘区也罩进来
+        bc.size = new Vector3(W + 0.4f, 0.1f, H + 2.0f); // 横向盖满棋盘, 纵向额外 +2 覆盖托盘
+    }
+
+    // 生成一个基础几何体并去掉它自带的 Collider。
+    // CreatePrimitive 生成的物体默认带碰撞体, 而本原型只需要"棋盘那一个大 collider"
+    // 作为射线目标, 所以其余的全拆掉, 防止射线被别的东西挡住。
+    static GameObject CreatePrimitive(PrimitiveType t)
+    {
+        GameObject g = GameObject.CreatePrimitive(t);
+        Collider c = g.GetComponent<Collider>();
+        if (c != null)
+        {
+            if (Application.isPlaying) Object.Destroy(c); // 运行期: 延迟到帧末销毁
+            else Object.DestroyImmediate(c);              // 编辑模式: 立即销毁
+        }
+        return g;
+    }
+
+    // 给物体换上指定材质 (sharedMaterial 会同时影响所有用同一材质的物体, 省内存)
+    static void SetMat(GameObject g, Material m)
+    {
+        Renderer r = g.GetComponent<Renderer>(); // Renderer 负责把网格真正画出来
+        if (r != null) r.sharedMaterial = m;
+    }
+}
