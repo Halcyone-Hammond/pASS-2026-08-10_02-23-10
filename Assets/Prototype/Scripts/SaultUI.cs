@@ -38,16 +38,15 @@ public class SaultUI : MonoBehaviour
 
     // ---- UI 引用 (BuildUI 里创建并保存, 后续刷新/点击时用) ----
     public GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
-    public TextMeshPro hintText, reqText, titleText, resultText, energyText; // 提示条 / 目标 / 标题 / 结算结果 / 能量
-    public TextMeshPro[] slotTexts = new TextMeshPro[4];      // 4 个槽位按钮上的字母文字
-    public TextMeshPro[] valueTexts = new TextMeshPro[4];     // 4 个字母的数值文字
-    public Button[] minusBtns = new Button[4];  // 4 个 [-] 按钮 (能量不足时置灰)
-    public Button[] plusBtns = new Button[4];   // 4 个 [+] 按钮
+    [SerializeField] TMP_Text hintText, reqText, titleText, resultText, energyText; // 提示条 / 目标 / 标题 / 结算结果 / 能量
+    [SerializeField] Button minusBtn;  // 4 个 [-] 按钮 (能量不足时置灰)
+    [SerializeField] Button plusBtn;   // 4 个 [+] 按钮
+    Button whatPiece;
+
     // Unity 生命周期: Awake 最先执行, 这里把整套 UI 搭出来
     void Awake()
     {
         EnsureCanvasAndEventSystem(); // 兜底: 确保有 Canvas 和 EventSystem
-        BuildUI();                    // 用代码创建全部 UI 元素
     }
 
     // Start 在 Awake 之后执行: 补齐引用、默认收起面板、刷新能量显示
@@ -59,6 +58,7 @@ public class SaultUI : MonoBehaviour
         if (camSwitch == null) camSwitch = FindAnyObjectByType<CameraSwitcher>();
         Hide();
         RefreshEnergyText();
+        RefreshTargetText();
     }
 
     // 兜底: 正常情况下 Canvas 和 EventSystem 由 SceneBuilder 在编辑模式建好并保存进场景;
@@ -245,7 +245,7 @@ public class SaultUI : MonoBehaviour
     // 能量文字 (面板内 + 顶部提示条) 同步
     void RefreshEnergyText()
     {
-        if (energyText != null) energyText.text = "能量 (Energy): " + energy;
+        if (energyText != null) energyText.text = "剩余能量: " + energy;
         if (hintText != null) hintText.text = "点击棋子拖动 | R 旋转 | Space 切换视角 | 能量: " + energy;
     }
 

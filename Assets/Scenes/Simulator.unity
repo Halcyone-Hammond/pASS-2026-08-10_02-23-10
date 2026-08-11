@@ -2126,11 +2126,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SaultUI
   panel: {fileID: 1396212822}
-  hintText: {fileID: 0}
-  reqText: {fileID: 0}
-  titleText: {fileID: 0}
-  resultText: {fileID: 0}
-  energyText: {fileID: 0}
+  hintText: {fileID: 1859633249}
+  reqText: {fileID: 1814369882}
+  titleText: {fileID: 944442892}
+  resultText: {fileID: 1045820972}
+  energyText: {fileID: 24592132}
   slotTexts:
   - {fileID: 0}
   - {fileID: 0}
