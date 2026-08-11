@@ -1,3 +1,4 @@
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems; // EventSystem: 用来判断鼠标是否点在 UI 上
 using UnityEngine.InputSystem;  // 新版输入系统 (本项目用的是新输入系统, 不能用旧的 UnityEngine.Input)
@@ -26,6 +27,8 @@ public class InputController : MonoBehaviour
     Vector3 mouseOffset, grabOffset;   // 鼠标按下点到棋子锚点的偏移 (保证"抓着棋子哪, 哪里就跟着鼠标")
     int origX, origZ, origRot; // 拖拽前棋子所在的位置/旋转 (松手失败时回退用)
     bool origPlaced;      // 拖拽前棋子是否在棋盘上
+
+    int lastDraggedX, lastDraggedZ, lastDraggedRot; // 记录上一次拖拽时的格子坐标和旋转 (用于记忆最后一个可行状态)
 
     // Unity 生命周期: Update 每帧调用一次 (与帧率相关, 60fps 就是每秒 60 次)。
     // 输入系统的"按下/松开"是按帧判断的: wasPressedThisFrame = "这一帧刚按下"。
@@ -120,6 +123,9 @@ public class InputController : MonoBehaviour
     void Select(Piece p)
     {
         Deselect(); // 先取消上一个选中 (清状态、收面板)
+        //lastDraggedRot = 0;
+        //lastDraggedX = 0;
+        //lastDraggedZ = 0;
         selected = p;
         dragging = true;
 
@@ -154,24 +160,33 @@ public class InputController : MonoBehaviour
         }
         // Lerp 插值: 每帧向目标移动 45% -> 平滑跟随, 不跳变
         selected.transform.position = Vector3.Lerp(selected.transform.position, target, 0.45f);
+        if(board!= null) ShowGhost(selected, target); // 直接移动，不再撤回
     }
 
+    void ShowGhost(Piece pieceHover, Vector3 targetPos)
+    {
+        int x, z;
+        bool ok = false;
+        board.WorldToCell(targetPos, out x, out z);
+        ok = board.TryPlace(pieceHover,x,z,pieceHover.rot);
+        if (!ok) selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
+    }
     // 松手: 尝试放到最近的格子
     void DragEnd()
     {
         if (selected == null) return;
         int x, z;
         bool ok = false;
-        if (board != null)
+        /*if (board != null)
         {
             // 棋子当前位置 -> 最近格子 -> 尝试放置 (内部会做越界/重叠校验)
             if (board.WorldToCell(selected.transform.position, out x, out z))
                 ok = board.TryPlace(selected, x, z, selected.rot);
-            // 放不下且原来就在棋盘上 -> 放回原位
+            // 放不下且原来就在棋盘上 -> 放回原位 --之后改成记忆可行的最后一个状态，也许要到DragUpdate实现
             if (!ok && origPlaced)
                 ok = board.TryPlace(selected, origX, origZ, origRot);
-        }
-        if (!ok) selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
+        }*/
+        //if (!ok) selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
         selected.SetSelected(true);   // 保持选中 (方便继续 R 旋转 / 改 SAUL)
         dragging = false;
     }

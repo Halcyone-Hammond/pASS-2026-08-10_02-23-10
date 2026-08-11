@@ -15,13 +15,18 @@ public class Board : MonoBehaviour
 {
     // ---- 棋盘尺寸与关卡常量 ---------------------------------------------------
     // 常量 (const) 在编译期就固定, 运行时不能改, 适合这类"写死的规则数字"
-    public const int W = 5;              // 列数 (x 方向): 棋盘宽 5 格
-    public const int H = 4;              // 行数 (z 方向): 棋盘高 4 格
-    public const int EntryX = 0;         // 入口所在列: 左边缘 (x = 0)
-    public const int EntryRow = 2;       // 入口所在行: 第 2 行 (z = 2)
-    public const int ExitX = W - 1;      // 出口所在列: 右边缘 (x = 4)
-    public const int ExitRow = 3;        // 出口所在行: 第 3 行 (z = 3)
-    public const int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS
+    public const int W = 7;              // 列数 (x 方向): 棋盘宽 7 格
+    public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
+    public int boardStage = 2;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
+
+    int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
+    public const int EntryX = 2;       // 入口所在行: 第 2 行 (x = 2)  应该随机以检查玩法是否灵活
+    public const int EntryRow = 2;       // 入口所在列: 第 2 列 (z = 2)  应该随机以检查玩法是否灵活  
+    public const int ExitX = 3;        // 出口所在行: 第 3 行 (x = 3)  应该随机以检查玩法是否灵活
+    public const int ExitRow = 3;        // 出口所在列: 第 3 列 (z = 3)  应该随机以检查玩法是否灵活
+    public const int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS  提供一个
+
+
 
     // ---- 格子数据 -------------------------------------------------------------
     // [System.Serializable] 让这个普通类可以被 Unity 序列化 (可显示在 Inspector、
@@ -52,10 +57,19 @@ public class Board : MonoBehaviour
     void Awake()
     {
         Instance = this;
+        leftBorderX = boardStage;
+        rightBorderX = W - boardStage;
         // 二维数组的每个元素都要实例化, 否则访问 board[x,z].piece 会空引用报错
         for (int x = 0; x < W; x++)
             for (int z = 0; z < H; z++)
                 board[x, z] = new BoardCell();
+
+    }
+
+    // ---- 随机化入口/出口/目标 ---------------------------------------------------
+    public void randomTeacher()
+    {
+        //暂时不知道怎么随机化
     }
 
     // 把棋子登记进 allPieces 清单 (用 Contains 防重复登记)
@@ -79,9 +93,9 @@ public class Board : MonoBehaviour
     // (C# 的 out 参数: 方法内必须给它赋值, 调用方用 out int x, out int z 接收)
     public bool WorldToCell(Vector3 p, out int x, out int z)
     {
-        x = Mathf.RoundToInt(p.x + (W - 1) * 0.5f);
-        z = Mathf.RoundToInt(p.z + (H - 1) * 0.5f);
-        return x >= 0 && x < W && z >= 0 && z < H;
+        x = Mathf.RoundToInt(p.x + (W - 1) * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
+        z = Mathf.RoundToInt(p.z + (H - 1) * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
+        return x >= 0 && x < W && z >= 0 && z < H;                              // 这一套要求始终是一个以原点为中心的棋盘
     }
 
     // 计算: 某棋子放在 (px,pz) 且旋转为 rot 时, 它的 4 个槽位分别占据哪 4 个格子。
@@ -95,7 +109,7 @@ public class Board : MonoBehaviour
         return res;
     }
 
-    // 格子是否在棋盘范围内
+    // 格子是否在棋盘范围内，输入格子坐标 (x,z)，返回 true/false。
     bool InBounds(int x, int z) { return x >= 0 && x < W && z >= 0 && z < H; }
 
     // ---- 放置 / 移除 -------------------------------------------------------------
@@ -238,8 +252,8 @@ public class Board : MonoBehaviour
     // 全都找不到时退回最基础的 Unlit/Color (纯色, 不受光照影响)。
     public static Shader FindShader()
     {
-        Shader s = Shader.Find("Standard");
-        if (s == null) s = Shader.Find("Universal Render Pipeline/Lit");
+        Shader s = Shader.Find("Universal Render Pipeline/Lit");
+        if (s == null) s = Shader.Find("Standard");
         if (s == null) s = Shader.Find("URP/Lit");
         if (s == null) s = Shader.Find("Legacy Shaders/Diffuse");
         if (s == null) s = Shader.Find("Unlit/Color");

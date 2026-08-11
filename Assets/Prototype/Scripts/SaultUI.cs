@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Events;      // UnityAction: 按钮回调的委托类型
 using UnityEngine.EventSystems; // EventSystem: 清按钮焦点用 (防止 Space 键重复触发按钮)
 using UnityEngine.UI;          // 所有 UI 组件: Text / Button / Image / LayoutGroup ...
+using TMPro;
 
 // ============================================================
 // SaultUI —— S.A.U.L. 配置面板 (右侧 UI)
@@ -27,22 +28,21 @@ using UnityEngine.UI;          // 所有 UI 组件: Text / Button / Image / Layo
 // ============================================================
 public class SaultUI : MonoBehaviour
 {
-    public Board board;           // 棋盘引用 (结算用)
-    public CameraSwitcher camSwitch; // 相机切换器引用 (视角按钮用)
+    Board board;           // 棋盘引用 (结算用)
+    CameraSwitcher camSwitch; // 相机切换器引用 (视角按钮用)
 
-    const int MaxValue = 9; // 数值上限 (原型默认值, 防止点出离谱数字)
+    const int MaxValue = 10; // 数值上限 (原型默认值, 防止点出离谱数字)
 
     Piece current;    // 当前面板正在显示的棋子 (null = 没有选中)
     int energy = 10;  // 玩家能量 (原型默认 10; 每次 +/- 消耗 1)
 
     // ---- UI 引用 (BuildUI 里创建并保存, 后续刷新/点击时用) ----
-    GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
-    Text hintText, titleText, resultText, energyText; // 提示条 / 标题 / 结算结果 / 能量
-    Text[] slotTexts = new Text[4];      // 4 个槽位按钮上的字母文字
-    Text[] valueTexts = new Text[4];     // 4 个字母的数值文字
-    Button[] minusBtns = new Button[4];  // 4 个 [-] 按钮 (能量不足时置灰)
-    Button[] plusBtns = new Button[4];   // 4 个 [+] 按钮
-
+    public GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
+    public TextMeshPro hintText, reqText, titleText, resultText, energyText; // 提示条 / 目标 / 标题 / 结算结果 / 能量
+    public TextMeshPro[] slotTexts = new TextMeshPro[4];      // 4 个槽位按钮上的字母文字
+    public TextMeshPro[] valueTexts = new TextMeshPro[4];     // 4 个字母的数值文字
+    public Button[] minusBtns = new Button[4];  // 4 个 [-] 按钮 (能量不足时置灰)
+    public Button[] plusBtns = new Button[4];   // 4 个 [+] 按钮
     // Unity 生命周期: Awake 最先执行, 这里把整套 UI 搭出来
     void Awake()
     {
@@ -55,8 +55,8 @@ public class SaultUI : MonoBehaviour
     {
         // 注意: FindObjectOfType 是旧 API, Unity 6 里已标记过时 (会有警告但能用);
         // 新 API 是 FindAnyObjectByType (见 Piece.cs)。这里保持原样未改。
-        if (board == null) board = FindObjectOfType<Board>();
-        if (camSwitch == null) camSwitch = FindObjectOfType<CameraSwitcher>();
+        if (board == null) board = FindAnyObjectByType<Board>();
+        if (camSwitch == null) camSwitch = FindAnyObjectByType<CameraSwitcher>();
         Hide();
         RefreshEnergyText();
     }
@@ -86,119 +86,8 @@ public class SaultUI : MonoBehaviour
             es.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
         }
     }
-
-    // ---- 搭建 UI (全部代码生成) ------------------------------------------------
-    void BuildUI()
-    {
-        // 顶部提示条: 固定贴在屏幕左上角 (anchor 左上角, 用 offset 控制边距)
-        hintText = MakeText(transform, "", 14, new Color(0.12f, 0.13f, 0.16f), TextAnchor.MiddleLeft);
-        RectTransform hr = hintText.rectTransform;
-        hr.anchorMin = new Vector2(0f, 1f);   // 锚点: 父物体的左上角
-        hr.anchorMax = new Vector2(1f, 1f);   // 横向拉满整行
-        hr.pivot = new Vector2(0f, 1f);       // 枢轴在左上角 (定位时以左上角为基准)
-        hr.offsetMin = new Vector2(14f, -36f); // 距左 14、距下 36 (顶部一条横带)
-        hr.offsetMax = new Vector2(-14f, -8f); // 距右 14、距上 8
-        hintText.horizontalOverflow = HorizontalWrapMode.Overflow; // 文字不换行
-
-        // 右侧面板: 锚定在屏幕右边缘中央
-        panel = new GameObject("Panel", typeof(RectTransform), typeof(Image)); // Image 当背景
-        RectTransform pr = panel.GetComponent<RectTransform>();
-        pr.SetParent(transform, false);
-        pr.anchorMin = new Vector2(1f, 0.5f); // 锚点: 父物体的右边缘中央
-        pr.anchorMax = new Vector2(1f, 0.5f);
-        pr.pivot = new Vector2(1f, 0.5f);     // 枢轴在面板右边缘中央
-        pr.anchoredPosition = new Vector2(-12f, 0f); // 距屏幕右缘 12 像素
-        pr.sizeDelta = new Vector2(250f, 570f);      // 宽 250、高 570
-        panel.GetComponent<Image>().color = new Color(0.96f, 0.96f, 0.99f, 0.97f); // 近白底
-
-        // 面板内的"内容区": 用 VerticalLayoutGroup 让所有行自动从上往下排列,
-        // 不用手动算每个控件的位置 (这是 Unity UI 布局系统最省事的用法)
-        RectTransform content = new GameObject("Content", typeof(RectTransform)).GetComponent<RectTransform>();
-        content.SetParent(panel.transform, false);
-        content.anchorMin = Vector2.zero; // 锚点铺满整个面板
-        content.anchorMax = Vector2.one;
-        content.offsetMin = new Vector2(8f, 8f);  // 四周留 8 像素内边距
-        content.offsetMax = new Vector2(-8f, -8f);
-        VerticalLayoutGroup vlg = content.gameObject.AddComponent<VerticalLayoutGroup>();
-        vlg.spacing = 5f;                 // 行间距 5
-        vlg.childControlWidth = true;     // 子物体宽度由布局组控制 (拉满)
-        vlg.childControlHeight = true;    // 子物体高度由布局组控制
-        vlg.childForceExpandWidth = true; // 强制子物体撑满宽度
-
-        // 标题行
-        titleText = MakeText(content, "", 16, new Color(0.1f, 0.12f, 0.16f), TextAnchor.MiddleLeft);
-
-        // 4 个槽位行: 标签 + 字母按钮。
-        // 字母按钮点击 -> OnSlotCycle(slot): 轮换字母并自动与冲突槽位交换。
-        for (int i = 0; i < 4; i++)
-        {
-            int slot = i; // 先复制到局部变量! 闭包陷阱: 循环变量 i 在回调触发时已变成 4,
-                          // 所以必须用局部变量 slot 才能在回调里拿到"当前这一次的 i"
-            HorizontalLayoutGroup row = MakeRow(content); // 这一行是横向排列
-            Text lab = MakeText(row.transform, "槽位" + (i + 1), 14, new Color(0.15f, 0.16f, 0.2f), TextAnchor.MiddleLeft);
-            LayoutElement lle = lab.gameObject.AddComponent<LayoutElement>(); // 指定最小宽度, 防止被挤压
-            lle.minWidth = 62;
-            Button b = MakeButton(row.transform, "S", 14, delegate { OnSlotCycle(slot); });
-            LayoutElement ble = b.gameObject.AddComponent<LayoutElement>();
-            ble.minWidth = 96; ble.minHeight = 26; // 按钮最小尺寸
-            slotTexts[i] = b.GetComponentInChildren<Text>(); // 记住按钮里的文字 (刷新用)
-        }
-
-        // 4 个属性数值行: [字母] [-] [数值] [+]
-        for (int l = 0; l < 4; l++)
-        {
-            int letter = l; // 同样复制到局部变量, 避免闭包陷阱
-            HorizontalLayoutGroup row = MakeRow(content);
-            Text lab = MakeText(row.transform, "SAUL"[l].ToString(), 15, new Color(0.1f, 0.12f, 0.16f), TextAnchor.MiddleCenter);
-            LayoutElement lle = lab.gameObject.AddComponent<LayoutElement>();
-            lle.minWidth = 26;
-            Button mb = MakeButton(row.transform, "−", 15, delegate { OnValue(letter, -1); }); // 减 1
-            LayoutElement mle = mb.gameObject.AddComponent<LayoutElement>();
-            mle.minWidth = 40; mle.minHeight = 26;
-            minusBtns[l] = mb;
-            valueTexts[l] = MakeText(row.transform, "1", 15, new Color(0.1f, 0.12f, 0.16f), TextAnchor.MiddleCenter);
-            LayoutElement vle = valueTexts[l].gameObject.AddComponent<LayoutElement>();
-            vle.minWidth = 44;
-            Button pb = MakeButton(row.transform, "+", 15, delegate { OnValue(letter, 1); }); // 加 1
-            LayoutElement ple = pb.gameObject.AddComponent<LayoutElement>();
-            ple.minWidth = 40; ple.minHeight = 26;
-            plusBtns[l] = pb;
-        }
-
-        // 能量显示
-        energyText = MakeText(content, "", 14, new Color(0.1f, 0.12f, 0.16f), TextAnchor.MiddleLeft);
-
-        // 目标说明 (常量来自 Board, 改 Board 常量这里自动跟着变)
-        Text req = MakeText(content, "目标: 通路 左缘行" + Board.EntryRow + " → 右缘行" + Board.ExitRow + ", S ≥ " + Board.TargetS,
-            13, new Color(0.35f, 0.36f, 0.42f), TextAnchor.MiddleLeft);
-        req.horizontalOverflow = HorizontalWrapMode.Wrap; // 允许换行
-        LayoutElement rle = req.gameObject.AddComponent<LayoutElement>();
-        rle.minHeight = 40; // 两行文字的高度
-
-        // 提交结算按钮
-        Button submit = MakeButton(content, "提交结算 (Submit)", 14, OnSubmit);
-        LayoutElement sle = submit.gameObject.AddComponent<LayoutElement>();
-        sle.minHeight = 32;
-
-        // 结算结果文字 (PASS / FAIL / 未提交)
-        resultText = MakeText(content, "未提交", 15, new Color(0.2f, 0.2f, 0.24f), TextAnchor.MiddleCenter);
-        LayoutElement cl = resultText.gameObject.AddComponent<LayoutElement>();
-        cl.minHeight = 30;
-
-        // 视角切换按钮 (效果等同按 Space)
-        Button camBtn = MakeButton(content, "切换视角 (Space)", 13, delegate { ToggleCamera(); ClearFocus(); });
-        LayoutElement cble = camBtn.gameObject.AddComponent<LayoutElement>();
-        cble.minHeight = 28;
-
-        // 收起面板按钮
-        Button close = MakeButton(content, "收起面板", 13, delegate { Hide(); ClearFocus(); });
-        LayoutElement xle = close.gameObject.AddComponent<LayoutElement>();
-        xle.minHeight = 28;
-
-        RefreshEnergyText();
-    }
-
-    // 生成一个"横向一行"的容器: HorizontalLayoutGroup 让子物体从左往右排
+ 
+  // 生成一个"横向一行"的容器: HorizontalLayoutGroup 让子物体从左往右排
     HorizontalLayoutGroup MakeRow(Transform parent)
     {
         GameObject row = new GameObject("Row", typeof(RectTransform));
@@ -299,7 +188,7 @@ public class SaultUI : MonoBehaviour
     // 点击提交结算: 让 Board 算通路和 S 总和, 显示 PASS / FAIL
     void OnSubmit()
     {
-        if (board == null) board = FindObjectOfType<Board>();
+        if (board == null) board = FindAnyObjectByType<Board>();
         if (board == null) { resultText.text = "无棋盘"; return; }
         bool pass; int sum; string msg;
         board.Submit(out pass, out sum, out msg); // out 参数带回三个结果
@@ -311,7 +200,7 @@ public class SaultUI : MonoBehaviour
     // 视角切换按钮: 调 CameraSwitcher 的 Toggle (和按 Space 一样)
     void ToggleCamera()
     {
-        if (camSwitch == null) camSwitch = FindObjectOfType<CameraSwitcher>();
+        if (camSwitch == null) camSwitch = FindAnyObjectByType<CameraSwitcher>();
         if (camSwitch != null) camSwitch.Toggle();
         ClearFocus();
     }
@@ -333,7 +222,7 @@ public class SaultUI : MonoBehaviour
         RefreshEnergyText();
     }
 
-    // 槽位按钮上的字母文字 与 棋子的实际分配 保持一致
+    // 槽位按钮上的字母文字 与 棋子的实际分配 保持一致——槽位1，2，3，4 显示的字母就对应棋子当前的 slotLetters[0..3]记录的SAUL数组对应值。
     void RefreshSlotButtons()
     {
         if (current == null) return;
@@ -358,6 +247,12 @@ public class SaultUI : MonoBehaviour
     {
         if (energyText != null) energyText.text = "能量 (Energy): " + energy;
         if (hintText != null) hintText.text = "点击棋子拖动 | R 旋转 | Space 切换视角 | 能量: " + energy;
+    }
+
+    //目标为在能量文字下显示目标文字。显示“目标: 通路 左缘行X → 右缘行Y, S ≥ Z”。”
+    void RefreshTargetText()
+    {
+
     }
 
     // 显示面板并指向某棋子 (由 InputController 选中棋子时调用)

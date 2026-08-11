@@ -43,16 +43,16 @@ public static class SceneBuilder
         Material matEntry = CreateMat("MatEntry", new Color(0.20f, 0.68f, 0.32f)); // 入口标记: 绿
         Material matExit = CreateMat("MatExit", new Color(0.85f, 0.28f, 0.24f));   // 出口标记: 红
         Material[] tints = new Material[4]; // 四种字母色 (S/A/U/L 各一)
-        tints[Piece.S] = CreateMat("MatS", new Color(0.36f, 0.58f, 0.95f)); // 蓝
-        tints[Piece.A] = CreateMat("MatA", new Color(0.45f, 0.78f, 0.45f)); // 绿
-        tints[Piece.U] = CreateMat("MatU", new Color(0.98f, 0.78f, 0.30f)); // 黄
-        tints[Piece.L] = CreateMat("MatL", new Color(0.95f, 0.45f, 0.42f)); // 红
+        tints[Piece.S] = CreateMat("MatS", new Color(0.95f, 0.45f, 0.42f)); // 红
+        tints[Piece.A] = CreateMat("MatA", new Color(0.98f, 0.78f, 0.30f)); // 黄
+        tints[Piece.U] = CreateMat("MatU", new Color(0.45f, 0.78f, 0.45f)); // 绿
+        tints[Piece.L] = CreateMat("MatL", new Color(0.36f, 0.58f, 0.95f)); // 蓝
 
         // 环境光 (新场景没有天空盒, 手动给一点环境光, 否则背光面全黑)
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; // 均匀环境光
         RenderSettings.ambientLight = new Color(0.55f, 0.56f, 0.60f);
 
-        // 平行光 + 软阴影 (模拟日光; 阴影让棋盘更有建筑模型的立体感)
+        // 平行光 + 软阴影 (模拟日光; 阴影让棋盘更有建筑模型的立体感)_改shader后再调试
         GameObject lightGO = new GameObject("Directional Light");
         Light lt = lightGO.AddComponent<Light>();
         lt.type = LightType.Directional;   // 平行光: 方向性光源, 不衰减
