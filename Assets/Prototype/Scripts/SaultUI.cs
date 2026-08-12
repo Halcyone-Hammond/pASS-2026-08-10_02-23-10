@@ -39,8 +39,8 @@ public class SaultUI : MonoBehaviour
     // ---- UI 引用 (BuildUI 里创建并保存, 后续刷新/点击时用) ----
     public GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
     [SerializeField] TMP_Text hintText, reqText, titleText, resultText, energyText; // 提示条 / 目标 / 标题 / 结算结果 / 能量
-    [SerializeField] Button minusBtn;  // 4 个 [-] 按钮 (能量不足时置灰)
-    [SerializeField] Button plusBtn;   // 4 个 [+] 按钮
+    [SerializeField] Button minusBtn;  // [-] 按钮 (能量不足时置灰)
+    [SerializeField] Button plusBtn;   // [+] 按钮
     Button whatPiece;
 
     // Unity 生命周期: Awake 最先执行, 这里把整套 UI 搭出来
@@ -86,75 +86,10 @@ public class SaultUI : MonoBehaviour
             es.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
         }
     }
- 
-  // 生成一个"横向一行"的容器: HorizontalLayoutGroup 让子物体从左往右排
-    HorizontalLayoutGroup MakeRow(Transform parent)
-    {
-        GameObject row = new GameObject("Row", typeof(RectTransform));
-        row.transform.SetParent(parent, false);
-        HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
-        h.spacing = 6f;                 // 子物体间距 6
-        h.childControlWidth = true;     // 子物体宽度由布局组控制
-        h.childControlHeight = true;    // 子物体高度由布局组控制
-        h.childForceExpandWidth = false; // 不强制撑满 (按各自的最小宽度排)
-        h.childForceExpandHeight = true;  // 高度撑满这一行
-        return h;
-    }
-
-    // 生成一个按钮: 底图 (Image) + 交互 (Button) + 文字 (Text)
-    // UnityAction 是 Unity 的"无参数回调"委托, 用来接点击事件
-    Button MakeButton(Transform parent, string label, int size, UnityAction onClick)
-    {
-        GameObject go = new GameObject("Btn", typeof(RectTransform));
-        go.transform.SetParent(parent, false);
-        Image img = go.AddComponent<Image>();                       // 背景图片 (纯色矩形)
-        img.color = new Color(0.24f, 0.35f, 0.55f);                 // 深蓝底色
-        Button b = go.AddComponent<Button>();                       // 点击交互组件
-        b.targetGraphic = img;                                      // 按钮高亮/变灰效果作用在底图上
-        b.onClick.AddListener(onClick);                             // 注册点击回调
-        Text t = MakeText(go.transform, label, size, Color.white, TextAnchor.MiddleCenter);
-        RectTransform tr = t.rectTransform;
-        tr.anchorMin = Vector2.zero; // 文字铺满整个按钮
-        tr.anchorMax = Vector2.one;
-        tr.offsetMin = Vector2.zero;
-        tr.offsetMax = Vector2.zero;
-        return b;
-    }
-
-    // 生成一个 Text 文字 (Unity UI 的 Text, 不是 3D 的 TextMesh)
-    Text MakeText(Transform parent, string s, int size, Color color, TextAnchor align)
-    {
-        GameObject go = new GameObject("Text", typeof(RectTransform));
-        go.transform.SetParent(parent, false);
-        Text t = go.AddComponent<Text>();
-        t.font = LoadFont();        // 必须手动赋字体, 否则不显示
-        t.text = s;
-        t.fontSize = size;          // 字号
-        t.color = color;            // 颜色
-        t.alignment = align;        // 对齐方式 (TextAnchor 枚举)
-        t.horizontalOverflow = HorizontalWrapMode.Overflow; // 超出不换行 (默认)
-        t.verticalOverflow = VerticalWrapMode.Overflow;     // 超出不裁剪
-        t.raycastTarget = false;    // 重要: 文字不参与射线检测, 否则会挡住按钮点击
-        return t;
-    }
-
-    // 加载内置字体 (UI 文字专用; 与 Piece 里的 3D 字体加载同理, 兼容新旧 Unity)
-    static Font cachedFont;
-    static Font LoadFont()
-    {
-        if (cachedFont != null) return cachedFont;
-        try { cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch (System.Exception) { }
-        if (cachedFont == null) { try { cachedFont = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch (System.Exception) { } }
-        return cachedFont;
-    }
 
     // ---- 交互回调 ---------------------------------------------------------------
 
-    // 点击槽位字母按钮: 轮换到下一个字母。
-    // 规则: 下一个字母若已被别的槽位使用, 就和那个槽位"交换字母",
-    // 从而始终保持"每个字母恰好一个" (这是需求硬性约束)。
-    // 例: 槽位1=S 槽位2=A, 点槽位1 -> 下一个字母是 A, 被槽位2占用 ->
-    //     交换后 槽位1=A, 槽位2=S。
+    // 正在修改成实时预览按钮进行修改。
     void OnSlotCycle(int slot)
     {
         if (current == null) return;
