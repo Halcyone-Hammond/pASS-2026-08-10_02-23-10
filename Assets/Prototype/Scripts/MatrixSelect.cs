@@ -12,7 +12,7 @@ public class MatrixSelect : MonoBehaviour
         
     }
 
-    Button buttonGuide(int x, int z)
+    public Button buttonGuide(int x, int z)
     {
         return buttons[x + z * 4];
     }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro; // TextMeshPro 组件 (3D 世界里的文字, 不是 UI 文字)
 
 // 棋子形状枚举: 四种经典"四格骨牌" (tetromino) 形状
 public enum Shape { L, T, I, O }
@@ -25,6 +26,7 @@ public class Piece : MonoBehaviour
     // 字母编号常量: 用 int 而不是 char, 方便直接当数组下标用
     public const int S = 0, A = 1, U = 2, L = 3;
     public static readonly string Letters = "SAUL"; // 编号 -> 字符 的查表 (0=S, 1=A, ...)
+    public Font FontAsset; //字体资源 (在编辑器里拖入)
 
     // 每种形状的"基础布局" (旋转 0 度时): 4 个槽位的局部坐标 (x, z), 单位 = 1 格。
     // 锚点 (0,0) 一定在形状里, 因为旋转都是绕着它转的。
@@ -163,7 +165,7 @@ public class Piece : MonoBehaviour
             if (topRends[i] != null && matTints != null)
                 topRends[i].sharedMaterial = matTints[slotLetters[i]]; // 按字母换顶面颜色
             if (labels[i] != null)
-                labels[i].text = Letters[slotLetters[i]].ToString();   // 按字母换标签文字
+                labels[i].text = attrValues[i].ToString();   // 按数值换标签文字
         }
     }
 
@@ -188,7 +190,7 @@ public class Piece : MonoBehaviour
             lb.transform.localPosition = lp + new Vector3(0f, 0.37f, 0f); // 浮在顶面上方
             lb.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 绕 X 转 90°, 让文字面朝上
             TextMesh tm = lb.AddComponent<TextMesh>();
-            tm.font = FontLoader();     // 内置字体 (见文件底部, 兼容新旧 Unity 的字体文件名)
+            tm.font = FontAsset;
             tm.fontSize = 60;           // 字体内部分辨率 (配合 characterSize 决定最终世界尺寸)
             tm.characterSize = 0.09f;   // 世界尺寸系数: 60*0.09/10 ≈ 0.54 单位高, 正好放进格子
             tm.anchor = TextAnchor.MiddleCenter;  // 文字中心对齐 (对准锚点)
@@ -217,17 +219,5 @@ public class Piece : MonoBehaviour
         Renderer r = g.GetComponent<Renderer>();
         if (r != null) r.sharedMaterial = mat;
         return g;
-    }
-
-    // 加载 Unity 内置字体。Unity 2022.2+ 的内置字体叫 LegacyRuntime.ttf,
-    // 更老的版本叫 Arial.ttf; 两个都试一遍, 兼容不同编辑器版本。
-    // try/catch 是因为个别版本在找不到资源时会抛异常而不是返回 null。
-    static Font fontCache;
-    public static Font FontLoader()
-    {
-        if (fontCache != null) return fontCache;
-        try { fontCache = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch (System.Exception) { }
-        if (fontCache == null) { try { fontCache = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch (System.Exception) { } }
-        return fontCache;
     }
 }

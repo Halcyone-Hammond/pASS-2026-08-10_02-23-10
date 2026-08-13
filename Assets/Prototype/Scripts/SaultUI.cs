@@ -1,8 +1,9 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.Events;      // UnityAction: 按钮回调的委托类型
 using UnityEngine.EventSystems; // EventSystem: 清按钮焦点用 (防止 Space 键重复触发按钮)
 using UnityEngine.UI;          // 所有 UI 组件: Text / Button / Image / LayoutGroup ...
-using TMPro;
+using static UnityEngine.Rendering.DebugUI.Table;
 
 // ============================================================
 // SaultUI —— S.A.U.L. 配置面板 (右侧 UI)
@@ -157,12 +158,22 @@ public class SaultUI : MonoBehaviour
         RefreshEnergyText();
     }
 
-    // 槽位按钮上的字母文字 与 棋子的实际分配 保持一致——槽位1，2，3，4 显示的字母就对应棋子当前的 slotLetters[0..3]记录的SAUL数组对应值。
+    // 将矩阵Slot刷新，显示当前棋子
     void RefreshSlotButtons()
     {
         if (current == null) return;
-        for (int i = 0; i < 4; i++)
-            if (slotTexts[i] != null) slotTexts[i].text = "SAUL"[current.slotLetters[i]].ToString();
+        Vector2Int[] offs = current.GetOffsets(current.rot);
+        for(int i = 0; i < offs.Length; i++)
+        {
+            Vector2Int pos = offs[i];
+            // 通过棋盘坐标找到对应的格子物体, 再找它的 MatrixSelect 脚本
+            Button thebtn = panel.gameObject.GetComponent<MatrixSelect>().buttonGuide(pos.x, pos.y);
+            thebtn.gameObject.SetActive(true);
+            thebtn.GetComponentInChildren<TMP_Text>().text = current.ValueOf(i).ToString();
+            thebtn.GetComponent<Button>().image.color = current.GetComponent<Piece>().matTints[i].color;
+            Debug.Log(pos.x + ", " + pos.y);
+        }
+        
     }
 
     // 数值文字 + 能量不足时把 +/- 按钮置灰 (interactable = false)
@@ -171,9 +182,9 @@ public class SaultUI : MonoBehaviour
         if (current == null) return;
         for (int l = 0; l < 4; l++)
         {
-            if (valueTexts[l] != null) valueTexts[l].text = current.ValueOf(l).ToString();
-            if (minusBtns[l] != null) minusBtns[l].interactable = energy > 0;
-            if (plusBtns[l] != null) plusBtns[l].interactable = energy > 0;
+            //if (valueTexts[l] != null) valueTexts[l].text = current.ValueOf(l).ToString();
+            if (minusBtn != null) minusBtn.interactable = energy > 0;
+            if (plusBtn != null) plusBtn.interactable = energy > 0;
         }
     }
 
@@ -184,7 +195,7 @@ public class SaultUI : MonoBehaviour
         if (hintText != null) hintText.text = "点击棋子拖动 | R 旋转 | Space 切换视角 | 能量: " + energy;
     }
 
-    //目标为在能量文字下显示目标文字。显示“目标: 通路 左缘行X → 右缘行Y, S ≥ Z”。”
+    //目标为在能量文字下显示目标文字。显示“目标: 通路 左缘行X → 右缘行Y, S ≥ Z”。”尚未完成。
     void RefreshTargetText()
     {
 
@@ -204,6 +215,16 @@ public class SaultUI : MonoBehaviour
     // 收起面板 (由 InputController 取消选中 / 点击"收起面板"按钮时调用)
     public void Hide()
     {
+        if (current == null) return;
+        Vector2Int[] offs = current.GetOffsets(current.rot);
+        foreach (Vector2Int pos in offs)
+        {
+            // 通过棋盘坐标找到对应的格子物体, 再找它的 MatrixSelect 脚本
+            Button thebtn = panel.gameObject.GetComponent<MatrixSelect>().buttonGuide(pos.x, pos.y);
+            thebtn.gameObject.SetActive(true);
+            thebtn.GetComponentInChildren<TMP_Text>().text = "0";
+            thebtn.GetComponent<Button>().image.color = Color.magenta;
+        }
         current = null;
         if (panel != null) panel.SetActive(false);
     }
