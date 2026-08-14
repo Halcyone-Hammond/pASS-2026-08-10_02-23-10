@@ -102,7 +102,6 @@ public class Piece : MonoBehaviour
     // 自动找到场景里的 Board 并登记自己, 保证 allPieces 清单完整。
     void Start()
     {
-        // FindAnyObjectByType 是 Unity 6 的新查找 API (旧版叫 FindObjectOfType, 已标记过时)
         if (board == null) board = FindAnyObjectByType<Board>();
         if (board != null) board.RegisterPiece(this);
     }

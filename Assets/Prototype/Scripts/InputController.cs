@@ -22,16 +22,19 @@ public class InputController : MonoBehaviour
     public SaultUI ui;    // 右侧配置面板引用 (选中棋子后要显示它)
 
     // ---- 拖拽状态 ---------------------------------------------------------------
+    bool oriplaced;        // 拖拽开始时棋子是否已放置 (true = 原来在棋盘上, false = 托盘里)
     Piece selected, hovered;       // 当前选中的棋子 (null = 没选中)
     bool dragging;        // 是否正在拖拽
-    Vector3 mouseOffset, grabOffset;   // 鼠标按下点到棋子锚点的偏移 (保证"抓着棋子哪, 哪里就跟着鼠标")
-    int origX, origZ, origRot; // 拖拽前棋子所在的位置/旋转 (松手失败时回退用)
-    bool origPlaced;      // 拖拽前棋子是否在棋盘上
+    Vector3 mouseOffset, grabOffset=Vector3.zero;   // 鼠标按下点到棋子锚点的偏移 (保证"抓着棋子哪, 哪里就跟着鼠标")
 
-    int lastDraggedX, lastDraggedZ, lastDraggedRot; // 记录上一次拖拽时的格子坐标和旋转 (用于记忆最后一个可行状态)
 
     // Unity 生命周期: Update 每帧调用一次 (与帧率相关, 60fps 就是每秒 60 次)。
     // 输入系统的"按下/松开"是按帧判断的: wasPressedThisFrame = "这一帧刚按下"。
+    private void Awake()
+    {
+        selected = null; hovered = null;
+    }
+
     void Update()
     {
         // Mouse.current 是 Input System 提供的鼠标设备; 没有鼠标设备时为 null (要判空)
@@ -55,7 +58,7 @@ public class InputController : MonoBehaviour
         if (kb != null && kb.rKey.wasPressedThisFrame) RotateSelected();
     }
 
-    //鼠标悬浮高亮
+    //鼠标悬浮高亮 
     Piece HoverIndicate(Vector2 screenPos)
     {
         if(hovered)  hovered.SetSelected(false);
@@ -89,8 +92,8 @@ public class InputController : MonoBehaviour
     {
         // 如果鼠标点在 UI 上 (按钮/面板), 就不要去选棋子, 否则点按钮也会误拖棋子
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-        // 先看落点在棋盘内且格子上有棋子 -> 就是它
         if (thepiece == null) { Deselect(); return; } // 点的是空格 -> 取消选中
+        oriplaced = thepiece.placed;
         Select(thepiece);
     }
 
@@ -129,20 +132,10 @@ public class InputController : MonoBehaviour
         selected = p;
         dragging = true;
 
-        // 记录拖拽前状态, 以便松手失败时回退
-        origPlaced = p.placed;
-        if (origPlaced)
-        {
-            origX = p.bx; origZ = p.bz; origRot = p.rot;
-            // 关键: 拖起来的第一时间就从棋盘数组里"摘下来",
-            // 这样拖拽过程中它不占格子, 重叠校验也不用考虑它自己
-            if (board != null) board.RemovePiece(p);
-            p.placed = false;
-        }
-        else
-        {
-            origRot = p.rot; // 托盘里的棋子只需记旋转
-        }
+        // 关键: 拖起来的第一时间就从棋盘数组里"摘下来",
+        // 这样拖拽过程中它不占格子, 重叠校验也不用考虑它自己
+        if (board != null) board.RemovePiece(p);
+
         if (ui != null) ui.ShowFor(p); // 弹出 SAUL 配置面板
     }
 
@@ -175,20 +168,11 @@ public class InputController : MonoBehaviour
     void DragEnd()
     {
         if (selected == null) return;
-        int x, z;
-        bool ok = false;
-        /*if (board != null)
-        {
-            // 棋子当前位置 -> 最近格子 -> 尝试放置 (内部会做越界/重叠校验)
-            if (board.WorldToCell(selected.transform.position, out x, out z))
-                ok = board.TryPlace(selected, x, z, selected.rot);
-            // 放不下且原来就在棋盘上 -> 放回原位 --之后改成记忆可行的最后一个状态，也许要到DragUpdate实现
-            if (!ok && origPlaced)
-                ok = board.TryPlace(selected, origX, origZ, origRot);
-        }*/
-        //if (!ok) selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
-        selected.SetSelected(true);   // 保持选中 (方便继续 R 旋转 / 改 SAUL)
         dragging = false;
+        grabOffset = Vector3.zero;
+        if (!oriplaced && !selected.placed) return;
+        selected.SetSelected(true);   // 保持选中 (方便继续 R 旋转 / 改 SAUL)
+        selected.placed = true; // 放置成功
     }
 
     // R 键: 选中棋子旋转 90°

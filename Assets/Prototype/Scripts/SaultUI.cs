@@ -215,6 +215,7 @@ public class SaultUI : MonoBehaviour
     // 收起面板 (由 InputController 取消选中 / 点击"收起面板"按钮时调用)
     public void Hide()
     {
+        if (panel != null) panel.SetActive(false);
         if (current == null) return;
         Vector2Int[] offs = current.GetOffsets(current.rot);
         foreach (Vector2Int pos in offs)
@@ -223,9 +224,8 @@ public class SaultUI : MonoBehaviour
             Button thebtn = panel.gameObject.GetComponent<MatrixSelect>().buttonGuide(pos.x, pos.y);
             thebtn.gameObject.SetActive(true);
             thebtn.GetComponentInChildren<TMP_Text>().text = "0";
-            thebtn.GetComponent<Button>().image.color = Color.magenta;
+            thebtn.GetComponent<Button>().image.color = Color.lightGray;
         }
         current = null;
-        if (panel != null) panel.SetActive(false);
     }
 }
