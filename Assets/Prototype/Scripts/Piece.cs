@@ -202,7 +202,7 @@ public class Piece : MonoBehaviour
 
     // 生成一个"立方体子物体"的小工具: 设名字、父物体、局部位置、缩放、材质,
     // 并去掉它自带的 Collider (本原型只用棋盘那一个大 collider 做射线)。
-    GameObject Prim(string name, Vector3 localPos, Vector3 scale, Material mat)
+    public GameObject Prim(string name, Vector3 localPos, Vector3 scale, Material mat)
     {
         GameObject g = GameObject.CreatePrimitive(PrimitiveType.Cube);
         g.name = name;

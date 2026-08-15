@@ -160,9 +160,19 @@ public class InputController : MonoBehaviour
     {
         int x, z;
         bool ok = false;
-        board.WorldToCell(targetPos, out x, out z);
-        ok = board.TryPlace(pieceHover,x,z,pieceHover.rot);
-        if (!ok) selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
+        ok = board.WorldToCell(targetPos, out x, out z);
+        if(ok)
+        {
+            ok = board.TryPlace(pieceHover, x, z, pieceHover.rot);
+        }
+        else
+        {
+            // 越界 -> 直接回托盘
+        }
+        if (!ok)
+        {
+            selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
+        }
     }
     // 松手: 尝试放到最近的格子
     void DragEnd()

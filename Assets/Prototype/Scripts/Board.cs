@@ -27,7 +27,7 @@ public class Board : MonoBehaviour
     public const int ExitRow = 3;        // 出口所在列: 第 3 列 (z = 3)  应该随机以检查玩法是否灵活
     public const int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS  提供一个
 
-
+    GameObject[] ghostBlocks = new GameObject[6]; // 用于显示预览的格子 (鼠标拖动棋子时显示)
 
     // ---- 格子数据 -------------------------------------------------------------
     // [System.Serializable] 让这个普通类可以被 Unity 序列化 (可显示在 Inspector、
@@ -37,6 +37,7 @@ public class Board : MonoBehaviour
     {
         public Piece piece;   // 占据这个格子的棋子; null = 空格
         public int slot = -1; // 该棋子的第几个槽位 (0~3) 占了这个格子; -1 = 无
+        public bool boardUsed = false;
     }
 
     // 核心数组: [x, z] 下标对应格子位置, 与设计文档里的 BoardCell[5,4] 一致。
@@ -52,6 +53,8 @@ public class Board : MonoBehaviour
     // 静态单例: 全局唯一的"当前棋盘"引用, 其他脚本可以直接 Board.Instance 访问
     public static Board Instance;
 
+    Vector3 ini = new Vector3(100, 0.26f, 100);
+
     // ---- Unity 生命周期: Awake -------------------------------------------------
     // Awake 在场景加载、脚本被激活时最先执行一次 (早于 Start)。
     // 这里做两件事: 记录单例、给数组的每个元素 new 出 BoardCell。
@@ -66,7 +69,15 @@ public class Board : MonoBehaviour
         for (int x = 0; x < W; x++)
             for (int z = 0; z < H; z++)
                 board[x, z] = new BoardCell();
+    }
 
+    private void Start()
+    {
+        for (int x = 0; x < 6; x++)
+        {
+            Vector3 iniPos = new Vector3(ini.x + x, ini.y, ini.z);
+            ghostBlocks[x] = CommonPlace.Instance.Prim(x.ToString(), iniPos, new Vector3(0.94f, 0.16f, 0.94f), matTile);
+        }
     }
 
     // ---- 随机化入口/出口/目标 ---------------------------------------------------
@@ -87,7 +98,7 @@ public class Board : MonoBehaviour
     // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = (x - 2, 0, z - 1.5)
     public Vector3 CellToWorld(int x, int z)
     {
-        return new Vector3(x - (W - 1) * 0.5f, 0f, z - (H - 1) * 0.5f);
+        return new Vector3(x - (rightBorderX - leftBorderX - 1) * 0.5f, 0f, z - (upperBorderZ - lowerBorderZ - 1) * 0.5f);
     }
 
     // 反过来: 世界坐标 -> 最近的格子坐标。
@@ -115,7 +126,31 @@ public class Board : MonoBehaviour
     // 格子是否在棋盘范围内，输入格子坐标 (x,z)，返回 true/false。
     bool InBounds(int x, int z) { return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ; }
 
-    //专门的放置预览函数, 用于鼠标拖动棋子时的实时预览, 不改变棋盘状态
+    //专门的预览判定函数, 不改变棋盘状态, 用于鼠标拖动棋子时的实时预览
+    public bool GhostlyTrial(Piece p, int px, int pz, int rot)
+    {
+        Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
+        for (int i = 0; i < cells.Length; i++)
+        {
+            int cx = cells[i].x, cz = cells[i].y;
+            if (!InBounds(cx, cz))
+            {
+                if(!board[cx, cz].boardUsed)
+                {
+                    GhostlyMove(i, cx, cz, false);
+                }
+                return false;         // 任一格越界 -> 拒绝
+            }
+            if (board[cx, cz].piece != null) return false; // 任一格被占 -> 拒绝
+        }
+        return true;
+    }
+
+    public void GhostlyMove(int ind, int ppx, int ppz, bool legible)
+    {
+        board[ppx, ppz].boardUsed = true;
+        ghostBlocks[ind].transform.position = new Vector3(ppx - (rightBorderX - leftBorderX - 1) * 0.5f, 0.26f, ppz - (upperBorderZ - lowerBorderZ - 1) * 0.5f);
+    }
 
     // ---- 放置 / 移除 -------------------------------------------------------------
     // 尝试把棋子 p 放到 (px,pz), 旋转 rot。
