@@ -22,7 +22,8 @@ public class InputController : MonoBehaviour
     public SaultUI ui;    // 右侧配置面板引用 (选中棋子后要显示它)
 
     // ---- 拖拽状态 ---------------------------------------------------------------
-    bool oriplaced;        // 拖拽开始时棋子是否已放置 (true = 原来在棋盘上, false = 托盘里)
+    bool oriPlaced;        // 拖拽开始时棋子是否已放置 (true = 原来在棋盘上, false = 托盘里)
+    int origX, origZ, origRot; // 拖拽开始时棋子在棋盘上的格子坐标和旋转角度 (放在托盘里时无效)
     Piece selected, hovered;       // 当前选中的棋子 (null = 没选中)
     bool dragging;        // 是否正在拖拽
     Vector3 mouseOffset, grabOffset=Vector3.zero;   // 鼠标按下点到棋子锚点的偏移 (保证"抓着棋子哪, 哪里就跟着鼠标")
@@ -93,7 +94,7 @@ public class InputController : MonoBehaviour
         // 如果鼠标点在 UI 上 (按钮/面板), 就不要去选棋子, 否则点按钮也会误拖棋子
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         if (thepiece == null) { Deselect(); return; } // 点的是空格 -> 取消选中
-        oriplaced = thepiece.placed;
+        oriPlaced = thepiece.placed;
         Select(thepiece);
     }
 
@@ -126,16 +127,21 @@ public class InputController : MonoBehaviour
     void Select(Piece p)
     {
         Deselect(); // 先取消上一个选中 (清状态、收面板)
-        //lastDraggedRot = 0;
-        //lastDraggedX = 0;
-        //lastDraggedZ = 0;
         selected = p;
         dragging = true;
 
-        // 关键: 拖起来的第一时间就从棋盘数组里"摘下来",
-        // 这样拖拽过程中它不占格子, 重叠校验也不用考虑它自己
-        if (board != null) board.RemovePiece(p);
-
+        if(oriPlaced)
+        {
+            origX = p.bx; origZ = p.bz; origRot = p.rot; // 记录原来的格子坐标和旋转角度
+            // 关键: 拖起来的第一时间就从棋盘数组里"摘下来",
+            // 这样拖拽过程中它不占格子, 重叠校验也不用考虑它自己
+            if (board != null) board.RemovePiece(p);
+            p.placed = false; // 拖起来的棋子不算放置 (否则拖拽中就会被判定为"已放置")
+        }
+        else
+        {
+            origRot = p.rot; // 托盘里没有格子坐标, 只记录旋转角度
+        }
         if (ui != null) ui.ShowFor(p); // 弹出 SAUL 配置面板
     }
 
@@ -153,7 +159,7 @@ public class InputController : MonoBehaviour
         }
         // Lerp 插值: 每帧向目标移动 45% -> 平滑跟随, 不跳变
         selected.transform.position = Vector3.Lerp(selected.transform.position, target, 0.45f);
-        if(board!= null) ShowGhost(selected, target); // 直接移动，不再撤回
+        if(board!= null) ShowGhost(selected, target); // 直接移动预览
     }
 
     void ShowGhost(Piece pieceHover, Vector3 targetPos)
@@ -161,26 +167,39 @@ public class InputController : MonoBehaviour
         int x, z;
         bool ok = false;
         ok = board.WorldToCell(targetPos, out x, out z);
-        if(ok)
+        if(ok)      //在边界之中
         {
-            ok = board.TryPlace(pieceHover, x, z, pieceHover.rot);
+            ok = board.GhostlyTrial(pieceHover, x, z, pieceHover.rot); // 预览放置 (内部会做越界/重叠校验)
         }
         else
         {
-            // 越界 -> 直接回托盘
-        }
-        if (!ok)
-        {
-            selected.GoToTray(); // 都失败 (原来在托盘) -> 回托盘
+            // 越界就不预览呗
         }
     }
+
     // 松手: 尝试放到最近的格子
     void DragEnd()
     {
         if (selected == null) return;
+        int x, z;
+        bool ok = false;
+        board.GhostlyRecover();
+        if (board!=null)
+        {
+            // 棋子当前位置 -> 最近格子 -> 尝试放置 (内部会做越界/重叠校验)
+            if (board.WorldToCell(selected.transform.position, out x, out z))
+                ok = board.TryPlace(selected, x, z, selected.rot);
+            // 放不下且原来就在棋盘上 -> 放回原位
+            if (!ok && oriPlaced)
+                ok = board.TryPlace(selected, origX, origZ, origRot);
+        }
+        if (!ok)
+        {
+            selected.GoToTray(); // 都失败 (原来在托盘) -> 直接回托盘，无需改变board数组，因为它本来就不在里面
+        }
         dragging = false;
         grabOffset = Vector3.zero;
-        if (!oriplaced && !selected.placed) return;
+        if (!oriPlaced && !selected.placed) return;
         selected.SetSelected(true);   // 保持选中 (方便继续 R 旋转 / 改 SAUL)
         selected.placed = true; // 放置成功
     }

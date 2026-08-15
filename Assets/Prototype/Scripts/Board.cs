@@ -27,7 +27,7 @@ public class Board : MonoBehaviour
     public const int ExitRow = 3;        // 出口所在列: 第 3 列 (z = 3)  应该随机以检查玩法是否灵活
     public const int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS  提供一个
 
-    GameObject[] ghostBlocks = new GameObject[6]; // 用于显示预览的格子 (鼠标拖动棋子时显示)
+    public GameObject[] ghostBlocks = new GameObject[6]; // 用于显示预览的格子 (鼠标拖动棋子时显示)
 
     // ---- 格子数据 -------------------------------------------------------------
     // [System.Serializable] 让这个普通类可以被 Unity 序列化 (可显示在 Inspector、
@@ -146,10 +146,27 @@ public class Board : MonoBehaviour
         return true;
     }
 
+    //将预览格子移动到指定位置, 并根据是否可放置改变颜色
     public void GhostlyMove(int ind, int ppx, int ppz, bool legible)
     {
-        board[ppx, ppz].boardUsed = true;
         ghostBlocks[ind].transform.position = new Vector3(ppx - (rightBorderX - leftBorderX - 1) * 0.5f, 0.26f, ppz - (upperBorderZ - lowerBorderZ - 1) * 0.5f);
+        if(legible)
+        {
+            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(0.5f, 1f, 0.5f, 0.5f);
+        }
+        else
+        {
+            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.5f);
+        }
+    }
+
+    //将预览格子恢复到初始位置，不在场景中显示
+    public void GhostlyRecover()
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            ghostBlocks[i].transform.position = new Vector3(ini.x + i, ini.y, ini.z);
+        }
     }
 
     // ---- 放置 / 移除 -------------------------------------------------------------
