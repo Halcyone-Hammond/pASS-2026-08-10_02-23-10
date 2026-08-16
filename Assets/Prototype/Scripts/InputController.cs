@@ -142,7 +142,6 @@ public class InputController : MonoBehaviour
         {
             origRot = p.rot; // 托盘里没有格子坐标, 只记录旋转角度
         }
-        if (ui != null) ui.ShowFor(p); // 弹出 SAUL 配置面板
     }
 
     // 拖拽中: 每帧把棋子移向"鼠标世界位置 + 抓取偏移"
@@ -184,24 +183,37 @@ public class InputController : MonoBehaviour
         int x, z;
         bool ok = false;
         board.GhostlyRecover();
-        if (board!=null)
+        if (board != null)
         {
+            bool boundIn = board.WorldToCell(selected.transform.position, out x, out z);
             // 棋子当前位置 -> 最近格子 -> 尝试放置 (内部会做越界/重叠校验)
-            if (board.WorldToCell(selected.transform.position, out x, out z))
+            if (boundIn)
+            {
                 ok = board.TryPlace(selected, x, z, selected.rot);
-            // 放不下且原来就在棋盘上 -> 放回原位
-            if (!ok && oriPlaced)
-                ok = board.TryPlace(selected, origX, origZ, origRot);
+                // 放不下且原来就在棋盘上 -> 放回原位
+                if (!ok && oriPlaced)
+                    ok = board.TryPlace(selected, origX, origZ, origRot);
+                else if (!ok && !oriPlaced)
+                {
+                    selected.GoToTray();
+                    ui.Hide();
+                }
+                else
+                {
+                    if (ui != null) ui.ShowFor(selected); // 弹出 SAUL 配置面板
+                }
+            }
+            else
+            {
+                selected.GoToTray(); // 都失败 (原来在托盘) -> 直接回托盘，无需改变board数组，因为它本来就不在里面
+                ui.Hide();
+            }
+            dragging = false;
+            grabOffset = Vector3.zero;
+            if (!selected.placed) return;
+            selected.SetSelected(true);   // 保持选中 (方便继续 R 旋转 / 改 SAUL)
+            selected.placed = true; // 放置成功
         }
-        if (!ok)
-        {
-            selected.GoToTray(); // 都失败 (原来在托盘) -> 直接回托盘，无需改变board数组，因为它本来就不在里面
-        }
-        dragging = false;
-        grabOffset = Vector3.zero;
-        if (!oriPlaced && !selected.placed) return;
-        selected.SetSelected(true);   // 保持选中 (方便继续 R 旋转 / 改 SAUL)
-        selected.placed = true; // 放置成功
     }
 
     // R 键: 选中棋子旋转 90°
@@ -224,7 +236,7 @@ public class InputController : MonoBehaviour
     }
 
     // 取消选中: 取消高亮、清状态、收起面板
-    void Deselect()
+    public void Deselect()
     {
         if (selected != null) selected.SetSelected(false);
         selected = null;

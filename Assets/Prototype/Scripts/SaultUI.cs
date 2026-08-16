@@ -171,7 +171,6 @@ public class SaultUI : MonoBehaviour
             thebtn.gameObject.SetActive(true);
             thebtn.GetComponentInChildren<TMP_Text>().text = current.ValueOf(i).ToString();
             thebtn.GetComponent<Button>().image.color = current.GetComponent<Piece>().matTints[i].color;
-            Debug.Log(pos.x + ", " + pos.y);
         }
         
     }
@@ -204,6 +203,7 @@ public class SaultUI : MonoBehaviour
     // 显示面板并指向某棋子 (由 InputController 选中棋子时调用)
     public void ShowFor(Piece p)
     {
+        
         current = p;
         panel.SetActive(true);
         titleText.text = "棋子: " + p.shapeName + "  (SAUL 随槽位)";

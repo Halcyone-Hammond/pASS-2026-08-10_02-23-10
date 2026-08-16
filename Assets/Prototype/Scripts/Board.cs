@@ -15,9 +15,9 @@ public class Board : MonoBehaviour
 {
     // ---- 棋盘尺寸与关卡常量 ---------------------------------------------------
     // 常量 (const) 在编译期就固定, 运行时不能改, 适合这类"写死的规则数字"
-    public const int W = 7;              // 列数 (x 方向): 棋盘宽 7 格
-    public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
-    public int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
+    public const int W = 5;              // 列数 (x 方向): 棋盘宽 7 格
+    public const int H = 4;              // 行数 (z 方向): 棋盘高 6 格
+    int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
@@ -65,6 +65,7 @@ public class Board : MonoBehaviour
         rightBorderX = W - boardStage;
         upperBorderZ = H - boardStage;
         lowerBorderZ = boardStage;
+        Debug.Log("Board Awake: leftBorderX=" + leftBorderX + ", rightBorderX=" + rightBorderX + ", upperBorderZ=" + upperBorderZ + ", lowerBorderZ=" + lowerBorderZ);
         // 二维数组的每个元素都要实例化, 否则访问 board[x,z].piece 会空引用报错
         for (int x = 0; x < W; x++)
             for (int z = 0; z < H; z++)
@@ -76,7 +77,7 @@ public class Board : MonoBehaviour
         for (int x = 0; x < 6; x++)
         {
             Vector3 iniPos = new Vector3(ini.x + x, ini.y, ini.z);
-            ghostBlocks[x] = CommonPlace.Instance.Prim(x.ToString(), iniPos, new Vector3(0.94f, 0.16f, 0.94f), matTile);
+            ghostBlocks[x] = CommonPlace.Instance.Prim(x.ToString(), iniPos, new Vector3(1.05f, 1.16f, 1.05f), matTile);
         }
     }
 
@@ -98,7 +99,10 @@ public class Board : MonoBehaviour
     // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = (x - 2, 0, z - 1.5)
     public Vector3 CellToWorld(int x, int z)
     {
-        return new Vector3(x - (rightBorderX - leftBorderX - 1) * 0.5f, 0f, z - (upperBorderZ - lowerBorderZ - 1) * 0.5f);
+        float xx = x - (W - 1) * 0.5f;
+        float zz = z - (H - 1) * 0.5f;
+        Debug.Log("translating "+ x + "," + z + " to " + xx + "," + zz);
+        return new Vector3(xx, 0f, zz);
     }
 
     // 反过来: 世界坐标 -> 最近的格子坐标。
@@ -107,9 +111,9 @@ public class Board : MonoBehaviour
     // (C# 的 out 参数: 方法内必须给它赋值, 调用方用 out int x, out int z 接收)
     public bool WorldToCell(Vector3 p, out int x, out int z)
     {
-        x = Mathf.RoundToInt(p.x + (rightBorderX - leftBorderX - 1) * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
-        z = Mathf.RoundToInt(p.z + (upperBorderZ - lowerBorderZ - 1) * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
-        return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ;                              // 这一套要求始终是一个以原点为中心的棋盘
+        x = Mathf.RoundToInt(p.x + (W - 1) * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
+        z = Mathf.RoundToInt(p.z + (H - 1) * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
+        return x >= 0 && x < W && z >= 0 && z < H;                              // 这一套要求始终是一个以原点为中心的棋盘
     }
 
     // 计算: 某棋子放在 (px,pz) 且旋转为 rot 时, 它的 4 个槽位分别占据哪 4 个格子。
@@ -124,39 +128,46 @@ public class Board : MonoBehaviour
     }
 
     // 格子是否在棋盘范围内，输入格子坐标 (x,z)，返回 true/false。
-    bool InBounds(int x, int z) { return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ; }
+    public bool InBounds(int x, int z) { return x >= 0 && x < W && z >= 0 && z < H; }
 
     //专门的预览判定函数, 不改变棋盘状态, 用于鼠标拖动棋子时的实时预览
     public bool GhostlyTrial(Piece p, int px, int pz, int rot)
     {
+        bool usedOrNot = false;
+        bool boundIn = true;
         Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
             if (!InBounds(cx, cz))
+                boundIn = false;         // 任一格越界 -> 拒绝
+            else if (board[cx, cz].piece != null)
             {
-                if(!board[cx, cz].boardUsed)
-                {
-                    GhostlyMove(i, cx, cz, false);
-                }
-                return false;         // 任一格越界 -> 拒绝
+                GhostlyMove(i, cx, cz, false);
+                usedOrNot = true;
             }
-            if (board[cx, cz].piece != null) return false; // 任一格被占 -> 拒绝
         }
-        return true;
+        if(!usedOrNot)
+        {
+            GhostlyRecover();
+        }
+        if (!boundIn) return false;
+        return !usedOrNot;
     }
+
+
 
     //将预览格子移动到指定位置, 并根据是否可放置改变颜色
     public void GhostlyMove(int ind, int ppx, int ppz, bool legible)
     {
-        ghostBlocks[ind].transform.position = new Vector3(ppx - (rightBorderX - leftBorderX - 1) * 0.5f, 0.26f, ppz - (upperBorderZ - lowerBorderZ - 1) * 0.5f);
+        ghostBlocks[ind].transform.position = new Vector3(ppx - (W - 1) * 0.5f, 0.8f, ppz - (H - 1) * 0.5f);
         if(legible)
         {
-            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(0.5f, 1f, 0.5f, 0.5f);
+            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
         }
         else
         {
-            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.5f);
+            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.1f);
         }
     }
 

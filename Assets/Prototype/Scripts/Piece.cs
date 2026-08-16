@@ -57,7 +57,7 @@ public class Piece : MonoBehaviour
     public Material matDark, matLight;
     public Material[] matTints;
 
-    Vector3 trayPosition; // 未放置时停靠的托盘位置 (场景搭建时指定)
+    [SerializeField] Vector3 trayPosition; // 未放置时停靠的托盘位置 (场景搭建时指定)
 
     Renderer[] topRends = new Renderer[4]; // 4 个槽位顶面的渲染器 (换字母色用)
     TextMesh[] labels = new TextMesh[4];   // 4 个槽位的文字标签 (显示 S/A/U/L)
@@ -97,7 +97,14 @@ public class Piece : MonoBehaviour
     public int ValueOf(int letter) { return attrValues[letter]; }        // 字母 -> 数值
     public void SetValue(int letter, int v) { attrValues[letter] = v; }  // 设置某字母的数值
 
-    // Unity 生命周期: Start 在 Awake 之后、第一帧 Update 之前执行一次。
+    private void Awake()
+    {
+        if(!placed)
+        {
+            trayPosition = transform.position; // 托盘位置 = 初始位置 (编辑器里放好棋子后, 运行时记住它)
+        }
+    }
+
     // 兜底逻辑: 如果棋盘引用没被赋值 (比如有人手动把棋子拖进别的场景),
     // 自动找到场景里的 Board 并登记自己, 保证 allPieces 清单完整。
     void Start()
@@ -128,6 +135,7 @@ public class Piece : MonoBehaviour
     {
         placed = false;
         rot = 0;
+        Debug.Log($"GoToTray: {shapeName} -> {trayPosition}");
         transform.position = trayPosition;
         SetVisualRotation(0);
     }
