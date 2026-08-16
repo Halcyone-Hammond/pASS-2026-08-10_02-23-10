@@ -15,12 +15,13 @@ public class Board : MonoBehaviour
 {
     // ---- 棋盘尺寸与关卡常量 ---------------------------------------------------
     // 常量 (const) 在编译期就固定, 运行时不能改, 适合这类"写死的规则数字"
-    public const int W = 5;              // 列数 (x 方向): 棋盘宽 7 格
-    public const int H = 4;              // 行数 (z 方向): 棋盘高 6 格
+    public const int W = 7;              // 列数 (x 方向): 棋盘宽 7 格
+    public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
     int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
+    int wSpan, hSpan;                       // 棋盘宽度/高度 (格子数)
     public const int EntryX = 2;       // 入口所在行: 第 2 行 (x = 2)  应该随机以检查玩法是否灵活
     public const int EntryRow = 2;       // 入口所在列: 第 2 列 (z = 2)  应该随机以检查玩法是否灵活  
     public const int ExitX = 3;        // 出口所在行: 第 3 行 (x = 3)  应该随机以检查玩法是否灵活
@@ -65,7 +66,12 @@ public class Board : MonoBehaviour
         rightBorderX = W - boardStage;
         upperBorderZ = H - boardStage;
         lowerBorderZ = boardStage;
+        wSpan = rightBorderX - leftBorderX;
+        hSpan = upperBorderZ - lowerBorderZ;
         Debug.Log("Board Awake: leftBorderX=" + leftBorderX + ", rightBorderX=" + rightBorderX + ", upperBorderZ=" + upperBorderZ + ", lowerBorderZ=" + lowerBorderZ);
+
+        BuildBoard();
+
         // 二维数组的每个元素都要实例化, 否则访问 board[x,z].piece 会空引用报错
         for (int x = 0; x < W; x++)
             for (int z = 0; z < H; z++)
@@ -99,8 +105,8 @@ public class Board : MonoBehaviour
     // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = (x - 2, 0, z - 1.5)
     public Vector3 CellToWorld(int x, int z)
     {
-        float xx = x - (W - 1) * 0.5f;
-        float zz = z - (H - 1) * 0.5f;
+        float xx = x - (wSpan - 1) * 0.5f;
+        float zz = z - (hSpan - 1) * 0.5f;
         Debug.Log("translating "+ x + "," + z + " to " + xx + "," + zz);
         return new Vector3(xx, 0f, zz);
     }
@@ -111,9 +117,9 @@ public class Board : MonoBehaviour
     // (C# 的 out 参数: 方法内必须给它赋值, 调用方用 out int x, out int z 接收)
     public bool WorldToCell(Vector3 p, out int x, out int z)
     {
-        x = Mathf.RoundToInt(p.x + (W - 1) * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
-        z = Mathf.RoundToInt(p.z + (H - 1) * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
-        return x >= 0 && x < W && z >= 0 && z < H;                              // 这一套要求始终是一个以原点为中心的棋盘
+        x = Mathf.RoundToInt(p.x + (wSpan - 1) * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
+        z = Mathf.RoundToInt(p.z + (hSpan - 1) * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
+        return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ;                              // 这一套要求始终是一个以原点为中心的棋盘
     }
 
     // 计算: 某棋子放在 (px,pz) 且旋转为 rot 时, 它的 4 个槽位分别占据哪 4 个格子。
@@ -128,7 +134,7 @@ public class Board : MonoBehaviour
     }
 
     // 格子是否在棋盘范围内，输入格子坐标 (x,z)，返回 true/false。
-    public bool InBounds(int x, int z) { return x >= 0 && x < W && z >= 0 && z < H; }
+    public bool InBounds(int x, int z) { return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ; }
 
     //专门的预览判定函数, 不改变棋盘状态, 用于鼠标拖动棋子时的实时预览
     public bool GhostlyTrial(Piece p, int px, int pz, int rot)
@@ -353,9 +359,9 @@ public class Board : MonoBehaviour
         SetMat(ground, matGround);
 
         // 20 个地砖 (浅色, 缝隙自然形成网格线)
-        for (int x = 0; x < W; x++)
+        for (int x = leftBorderX; x < rightBorderX; x++)
         {
-            for (int z = 0; z < H; z++)
+            for (int z = lowerBorderZ; z < upperBorderZ; z++)
             {
                 GameObject tile = CreatePrimitive(PrimitiveType.Cube); // 生成一个立方体
                 tile.name = "Tile_" + x + "_" + z;                    // 命名方便在 Hierarchy 里辨认

@@ -42,7 +42,8 @@ public class SaultUI : MonoBehaviour
     [SerializeField] TMP_Text hintText, reqText, titleText, resultText, energyText; // 提示条 / 目标 / 标题 / 结算结果 / 能量
     [SerializeField] Button minusBtn;  // [-] 按钮 (能量不足时置灰)
     [SerializeField] Button plusBtn;   // [+] 按钮
-    Button whatPiece;
+    Button selectBtn;
+    int selectedSlot = -1;
 
     // Unity 生命周期: Awake 最先执行, 这里把整套 UI 搭出来
     void Awake()
@@ -53,13 +54,15 @@ public class SaultUI : MonoBehaviour
     // Start 在 Awake 之后执行: 补齐引用、默认收起面板、刷新能量显示
     void Start()
     {
-        // 注意: FindObjectOfType 是旧 API, Unity 6 里已标记过时 (会有警告但能用);
-        // 新 API 是 FindAnyObjectByType (见 Piece.cs)。这里保持原样未改。
         if (board == null) board = FindAnyObjectByType<Board>();
         if (camSwitch == null) camSwitch = FindAnyObjectByType<CameraSwitcher>();
         Hide();
         RefreshEnergyText();
         RefreshTargetText();
+
+        //按钮事件监听
+        plusBtn.onClick.AddListener(() => OnValue(1));
+        minusBtn.onClick.AddListener(() => OnValue(-1));
     }
 
     // 兜底: 正常情况下 Canvas 和 EventSystem 由 SceneBuilder 在编辑模式建好并保存进场景;
@@ -110,15 +113,31 @@ public class SaultUI : MonoBehaviour
     }
 
     // 点击 +/- 按钮: 修改某字母的数值, 消耗 1 点能量
-    void OnValue(int letter, int delta)
+    void OnValue(int delta)
     {
-        if (current == null || energy < 1) return; // 没选棋子 / 没能量 -> 不响应
-        int nv = Mathf.Clamp(current.ValueOf(letter) + delta, 0, MaxValue); // 限制在 0~9
-        if (nv == current.ValueOf(letter)) return; // 已在边界 (0 或 9), 不消耗能量
-        current.SetValue(letter, nv);
+        if (current == null || energy < 1 || selectedSlot < 0 || selectedSlot >= 4) return; // 没选棋子 / 没能量 / 没选槽位 -> 不响应
+        int theLetter = current.slotLetters[selectedSlot]; // 当前选中槽位的字母 (0=S,1=A,2=U,3=L)
+
+        int oldValue = current.ValueOf(theLetter);
+        int newValue =  Mathf.Clamp(oldValue + delta, 0-MaxValue, MaxValue);   // 限制在 -10~10
+
+        if (newValue == oldValue) return;                                                           //动不了了，已在边界 (-10 或 10), 不消耗能量
+        current.SetValue(theLetter, newValue);
         energy--; // 每次 +1/-1 消耗 1 能量
+
+        current.RefreshVisuals(); // 棋子视觉同步 (顶面颜色 + 标签文字)
         RefreshAll();
         ClearFocus();
+    }
+
+    public void SlotSelect(int s)
+    {
+        if (current == null || s < 0 || s >= 4) return;
+
+        selectedSlot = s;
+        RefreshValueTexts();
+        ClearFocus();
+        //Vector2Int[] 
     }
 
     // 点击提交结算: 让 Board 算通路和 S 总和, 显示 PASS / FAIL
@@ -166,11 +185,11 @@ public class SaultUI : MonoBehaviour
         for(int i = 0; i < offs.Length; i++)
         {
             Vector2Int pos = offs[i];
-            // 通过棋盘坐标找到对应的格子物体, 再找它的 MatrixSelect 脚本
-            Button thebtn = panel.gameObject.GetComponent<MatrixSelect>().buttonGuide(pos.x, pos.y);
-            thebtn.gameObject.SetActive(true);
-            thebtn.GetComponentInChildren<TMP_Text>().text = current.ValueOf(i).ToString();
-            thebtn.GetComponent<Button>().image.color = current.GetComponent<Piece>().matTints[i].color;
+            int slotLetter = current.slotLetters[i];
+            int slotValue = current.ValueOf(slotLetter);
+            Color slotColor = current.GetComponent<Piece>().matTints[slotLetter].color;                                 //matTint始终按照字母顺序排列，0=S,1=A,2=U,3=L
+
+            panel.gameObject.GetComponent<MatrixSelect>().buttonOn(pos.x, pos.y, i, slotValue, slotLetter, slotColor);
         }
         
     }
@@ -203,7 +222,8 @@ public class SaultUI : MonoBehaviour
     // 显示面板并指向某棋子 (由 InputController 选中棋子时调用)
     public void ShowFor(Piece p)
     {
-        
+        selectedSlot = -1;
+        panel.gameObject.GetComponent<MatrixSelect>().ClearButtons();
         current = p;
         panel.SetActive(true);
         titleText.text = "棋子: " + p.shapeName + "  (SAUL 随槽位)";
@@ -217,15 +237,7 @@ public class SaultUI : MonoBehaviour
     {
         if (panel != null) panel.SetActive(false);
         if (current == null) return;
-        Vector2Int[] offs = current.GetOffsets(current.rot);
-        foreach (Vector2Int pos in offs)
-        {
-            // 通过棋盘坐标找到对应的格子物体, 再找它的 MatrixSelect 脚本
-            Button thebtn = panel.gameObject.GetComponent<MatrixSelect>().buttonGuide(pos.x, pos.y);
-            thebtn.gameObject.SetActive(true);
-            thebtn.GetComponentInChildren<TMP_Text>().text = "0";
-            thebtn.GetComponent<Button>().image.color = Color.lightGray;
-        }
+        panel.gameObject.GetComponent<MatrixSelect>().ClearButtons();
         current = null;
     }
 }

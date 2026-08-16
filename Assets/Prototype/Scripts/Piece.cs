@@ -50,12 +50,12 @@ public class Piece : MonoBehaviour
     public int bx, bz;    // 锚点所在的格子坐标 (只有 placed 时才有效)
     public bool placed;   // 是否已放到棋盘上 (false = 在托盘里或正在被拖动)
 
-    public int[] slotLetters = new int[] { 0, 1, 2, 3 }; // 槽位 -> 字母 (S=0,A=1,U=2,L=3)
-    public int[] attrValues = new int[] { 1, 1, 1, 1 };  // 字母 -> 数值 (初始全 1)
+    public int[] slotLetters = new int[] { 0, 1, 2, 3 }; // 槽位 -> 字母 (S=0,A=1,U=2,L=3)，根据指针对应字母
+    public int[] attrValues = new int[] { 1, 1, 1, 1 };  // 字母 -> 数值 (初始全 1)，根据字母对应
 
     // 视觉材质: matDark 深色底座 / matLight 顶面(会被字母色替换) / matTints 四种字母色
     public Material matDark, matLight;
-    public Material[] matTints;
+    public Material[] matTints;                                                             //根据字母对应
 
     [SerializeField] Vector3 trayPosition; // 未放置时停靠的托盘位置 (场景搭建时指定)
 
@@ -114,9 +114,7 @@ public class Piece : MonoBehaviour
         {
             Vector3 labelPos = new Vector3(offs[i].x, 0f, offs[i].y);
 
-            GameObject go = new GameObject(
-                $"Label_{i}",
-                typeof(RectTransform));
+            GameObject go = new GameObject($"Label_{i}",typeof(RectTransform));
 
             go.transform.SetParent(transform, false);
             go.transform.localPosition =
@@ -202,7 +200,10 @@ public class Piece : MonoBehaviour
             if (topRends[i] != null && matTints != null)
                 topRends[i].sharedMaterial = matTints[slotLetters[i]]; // 按字母换顶面颜色
             if (labels[i] != null)
-                labels[i].text = attrValues[i].ToString();   // 按数值换标签文字
+            {
+                int theLetter = slotLetters[i];
+                labels[i].text = attrValues[theLetter].ToString(); // 按数值换标签文字
+            }
         }
     }
 
@@ -226,19 +227,6 @@ public class Piece : MonoBehaviour
             lb.transform.SetParent(transform, false);
             lb.transform.localPosition = lp + new Vector3(0f, 0.37f, 0f); // 浮在顶面上方
             lb.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 绕 X 转 90°, 让文字面朝上
-            TextMeshPro tmp = lb.AddComponent<TextMeshPro>();
-
-            // 关键: 提前写好字体 —— 没拖就按路径自动加载 (编辑器搭场景时执行一次即可)
-           // if (FontAsset == null)
-                FontAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
-                    "Assets/TextMesh Pro/Fonts/方正仿宋 简体中文 SDF.asset");
-
-            tmp.font = FontAsset;
-            tmp.fontSize = 20;           // TMP 世界尺寸 ≈ fontSize ÷ 字体 pointSize; 20 是按 36pt 的 SDF 估的, 进场景微调这一个常量
-            tmp.alignment = TextAlignmentOptions.Center; // 文字中心对齐 (TMP 没有 anchor, 用 alignment)
-            tmp.color = new Color(0.07f, 0.08f, 0.12f); // 深色字, 浅色底上清晰
-            tmp.text = "W"; // 先写个占位字
-            labels[i] = tmp;
         }
         RefreshVisuals(); // 按当前字母分配上色、写字
     }
