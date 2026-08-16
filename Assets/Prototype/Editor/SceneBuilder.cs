@@ -80,8 +80,6 @@ public static class SceneBuilder
             GameObject pg = new GameObject("Piece " + shapes[i]);
             Piece piece = pg.AddComponent<Piece>();
             piece.board = board; // 引用棋盘 (Piece.Start 里也有兜底查找)
-            TMP_FontAsset pieceFont =AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/方正仿宋 简体中文 SDF.asset");
-            piece.FontAsset = pieceFont;
             piece.Init(shapes[i], matEdge, matTile, tints, new Vector3(trayX[i], 0f, 3.3f));
             board.RegisterPiece(piece); // 登记进 allPieces 清单
         }

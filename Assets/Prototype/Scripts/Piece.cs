@@ -26,7 +26,7 @@ public class Piece : MonoBehaviour
     // 字母编号常量: 用 int 而不是 char, 方便直接当数组下标用
     public const int S = 0, A = 1, U = 2, L = 3;
     public static readonly string Letters = "SAUL"; // 编号 -> 字符 的查表 (0=S, 1=A, ...)
-    public TMP_FontAsset FontAsset; //字体资源 (在编辑器里拖入)
+    [SerializeField] TMP_FontAsset FontAsset; //字体资源 (在编辑器里拖入)
 
     // 每种形状的"基础布局" (旋转 0 度时): 4 个槽位的局部坐标 (x, z), 单位 = 1 格。
     // 锚点 (0,0) 一定在形状里, 因为旋转都是绕着它转的。
@@ -103,6 +103,36 @@ public class Piece : MonoBehaviour
         {
             trayPosition = transform.position; // 托盘位置 = 初始位置 (编辑器里放好棋子后, 运行时记住它)
         }
+        EnsureTmpLabels();
+        RefreshVisuals(); 
+    }
+
+    void EnsureTmpLabels()
+    {
+        Vector2Int[] offs = GetOffsets(0); // 用基础布局 (rot 0) 的偏移定位子物体 
+        for (int i = 0; i < 4; i++)
+        {
+            Vector3 labelPos = new Vector3(offs[i].x, 0f, offs[i].y);
+
+            GameObject go = new GameObject(
+                $"Label_{i}",
+                typeof(RectTransform));
+
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition =
+                labelPos + new Vector3(0f, 0.37f, 0f);
+            go.transform.localRotation =
+                Quaternion.Euler(90f, 0f, 0f);
+
+            TextMeshPro tmp = go.AddComponent<TextMeshPro>();
+
+            tmp.font = FontAsset;
+            tmp.fontSize = 5;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = new Color(0.07f, 0.08f, 0.12f);
+
+            labels[i] = tmp;
+        }
     }
 
     // 兜底逻辑: 如果棋盘引用没被赋值 (比如有人手动把棋子拖进别的场景),
@@ -171,8 +201,8 @@ public class Piece : MonoBehaviour
         {
             if (topRends[i] != null && matTints != null)
                 topRends[i].sharedMaterial = matTints[slotLetters[i]]; // 按字母换顶面颜色
-            //if (labels[i] != null)
-                //labels[i].text = attrValues[i].ToString();   // 按数值换标签文字
+            if (labels[i] != null)
+                labels[i].text = attrValues[i].ToString();   // 按数值换标签文字
         }
     }
 
