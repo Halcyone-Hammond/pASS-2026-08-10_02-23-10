@@ -2230,6 +2230,7 @@ GameObject:
   m_Component:
   - component: {fileID: 478064955}
   - component: {fileID: 478064954}
+  - component: {fileID: 478064956}
   m_Layer: 0
   m_Name: Game
   m_TagString: Untagged
@@ -2266,6 +2267,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &478064956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 478064953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 437d8eb31633ef244a2144db049d9624, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CommonPlace
 --- !u!1 &493401967
 GameObject:
   m_ObjectHideFlags: 0
@@ -2853,7 +2866,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e59102fde9136a4c8a5c0127cf92c8f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Board
-  boardStage: 2
+  ghostBlocks:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   allPieces:
   - {fileID: 1333020523}
   - {fileID: 1367786438}
@@ -7329,6 +7348,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 8aec1843f996a4540b00ebb2a84237b4, type: 2}
   - {fileID: 2100000, guid: 7fecb234d2dc2024eaf36834fe42a173, type: 2}
   - {fileID: 2100000, guid: 110cee960e5a03c4684bdb303cfbfbfe, type: 2}
+  trayPosition: {x: 0, y: 0, z: 0}
 --- !u!4 &1333020524
 Transform:
   m_ObjectHideFlags: 0
@@ -7626,6 +7646,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 8aec1843f996a4540b00ebb2a84237b4, type: 2}
   - {fileID: 2100000, guid: 7fecb234d2dc2024eaf36834fe42a173, type: 2}
   - {fileID: 2100000, guid: 110cee960e5a03c4684bdb303cfbfbfe, type: 2}
+  trayPosition: {x: 0, y: 0, z: 0}
 --- !u!4 &1348328963
 Transform:
   m_ObjectHideFlags: 0
@@ -7925,6 +7946,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 8aec1843f996a4540b00ebb2a84237b4, type: 2}
   - {fileID: 2100000, guid: 7fecb234d2dc2024eaf36834fe42a173, type: 2}
   - {fileID: 2100000, guid: 110cee960e5a03c4684bdb303cfbfbfe, type: 2}
+  trayPosition: {x: 0, y: 0, z: 0}
 --- !u!4 &1367786439
 Transform:
   m_ObjectHideFlags: 0
@@ -9588,6 +9610,7 @@ MonoBehaviour:
   - {fileID: 2100000, guid: 8aec1843f996a4540b00ebb2a84237b4, type: 2}
   - {fileID: 2100000, guid: 7fecb234d2dc2024eaf36834fe42a173, type: 2}
   - {fileID: 2100000, guid: 110cee960e5a03c4684bdb303cfbfbfe, type: 2}
+  trayPosition: {x: 0, y: 0, z: 0}
 --- !u!4 &1615967520
 Transform:
   m_ObjectHideFlags: 0

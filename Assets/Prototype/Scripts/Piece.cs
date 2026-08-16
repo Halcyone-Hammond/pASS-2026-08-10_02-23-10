@@ -26,7 +26,7 @@ public class Piece : MonoBehaviour
     // 字母编号常量: 用 int 而不是 char, 方便直接当数组下标用
     public const int S = 0, A = 1, U = 2, L = 3;
     public static readonly string Letters = "SAUL"; // 编号 -> 字符 的查表 (0=S, 1=A, ...)
-    public Font FontAsset; //字体资源 (在编辑器里拖入)
+    public TMP_FontAsset FontAsset; //字体资源 (在编辑器里拖入)
 
     // 每种形状的"基础布局" (旋转 0 度时): 4 个槽位的局部坐标 (x, z), 单位 = 1 格。
     // 锚点 (0,0) 一定在形状里, 因为旋转都是绕着它转的。
@@ -60,7 +60,7 @@ public class Piece : MonoBehaviour
     [SerializeField] Vector3 trayPosition; // 未放置时停靠的托盘位置 (场景搭建时指定)
 
     Renderer[] topRends = new Renderer[4]; // 4 个槽位顶面的渲染器 (换字母色用)
-    TextMesh[] labels = new TextMesh[4];   // 4 个槽位的文字标签 (显示 S/A/U/L)
+    TMP_Text[] labels = new TMP_Text[4];   // 4 个槽位的文字标签 (显示 S/A/U/L)
 
     // 形状名字符串 (给 UI 显示用), 如 "L"、"T"
     public string shapeName { get { return shape.ToString(); } }
@@ -171,8 +171,8 @@ public class Piece : MonoBehaviour
         {
             if (topRends[i] != null && matTints != null)
                 topRends[i].sharedMaterial = matTints[slotLetters[i]]; // 按字母换顶面颜色
-            if (labels[i] != null)
-                labels[i].text = attrValues[i].ToString();   // 按数值换标签文字
+            //if (labels[i] != null)
+                //labels[i].text = attrValues[i].ToString();   // 按数值换标签文字
         }
     }
 
@@ -196,14 +196,19 @@ public class Piece : MonoBehaviour
             lb.transform.SetParent(transform, false);
             lb.transform.localPosition = lp + new Vector3(0f, 0.37f, 0f); // 浮在顶面上方
             lb.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 绕 X 转 90°, 让文字面朝上
-            TextMesh tm = lb.AddComponent<TextMesh>();
-            tm.font = FontAsset;
-            tm.fontSize = 60;           // 字体内部分辨率 (配合 characterSize 决定最终世界尺寸)
-            tm.characterSize = 0.09f;   // 世界尺寸系数: 60*0.09/10 ≈ 0.54 单位高, 正好放进格子
-            tm.anchor = TextAnchor.MiddleCenter;  // 文字中心对齐 (对准锚点)
-            tm.alignment = TextAlignment.Center;  // 多行时居中 (单行时无影响)
-            tm.color = new Color(0.07f, 0.08f, 0.12f); // 深色字, 浅色底上清晰
-            labels[i] = tm;
+            TextMeshPro tmp = lb.AddComponent<TextMeshPro>();
+
+            // 关键: 提前写好字体 —— 没拖就按路径自动加载 (编辑器搭场景时执行一次即可)
+           // if (FontAsset == null)
+                FontAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+                    "Assets/TextMesh Pro/Fonts/方正仿宋 简体中文 SDF.asset");
+
+            tmp.font = FontAsset;
+            tmp.fontSize = 20;           // TMP 世界尺寸 ≈ fontSize ÷ 字体 pointSize; 20 是按 36pt 的 SDF 估的, 进场景微调这一个常量
+            tmp.alignment = TextAlignmentOptions.Center; // 文字中心对齐 (TMP 没有 anchor, 用 alignment)
+            tmp.color = new Color(0.07f, 0.08f, 0.12f); // 深色字, 浅色底上清晰
+            tmp.text = "W"; // 先写个占位字
+            labels[i] = tmp;
         }
         RefreshVisuals(); // 按当前字母分配上色、写字
     }

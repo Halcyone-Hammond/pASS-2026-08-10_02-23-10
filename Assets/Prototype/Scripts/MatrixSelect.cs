@@ -6,8 +6,7 @@ public class MatrixSelect : MonoBehaviour
 {
     public Button[] buttons;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    void Awake()
     {
         for (int i = 0; i < buttons.Length; i++)
         {

@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEditor;                 // 编辑器 API: MenuItem / AssetDatabase 等
 using UnityEditor.SceneManagement; // 编辑器场景管理: EditorSceneManager (菜单里建/存场景)
 using UnityEngine;
@@ -79,6 +80,8 @@ public static class SceneBuilder
             GameObject pg = new GameObject("Piece " + shapes[i]);
             Piece piece = pg.AddComponent<Piece>();
             piece.board = board; // 引用棋盘 (Piece.Start 里也有兜底查找)
+            TMP_FontAsset pieceFont =AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/方正仿宋 简体中文 SDF.asset");
+            piece.FontAsset = pieceFont;
             piece.Init(shapes[i], matEdge, matTile, tints, new Vector3(trayX[i], 0f, 3.3f));
             board.RegisterPiece(piece); // 登记进 allPieces 清单
         }
@@ -122,8 +125,6 @@ public static class SceneBuilder
         ic.board = board; // 引用棋盘
         ic.ui = ui;       // 引用面板
 
-        // 保存场景 (覆盖式保存到 Assets/Scenes/Simulator.unity)
-        EditorSceneManager.SaveScene(scene, "Assets/Scenes/Simulator.unity");
         Debug.Log("Simulator prototype built → Assets/Scenes/Simulator.unity (press Play to test)");
     }
 
