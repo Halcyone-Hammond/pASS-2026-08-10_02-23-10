@@ -17,7 +17,7 @@ public class Board : MonoBehaviour
     // 常量 (const) 在编译期就固定, 运行时不能改, 适合这类"写死的规则数字"
     public const int W = 7;              // 列数 (x 方向): 棋盘宽 7 格
     public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
-    int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
+    int boardStage = 0;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
@@ -49,7 +49,7 @@ public class Board : MonoBehaviour
 
     // 棋盘视觉用的材质 (由 SceneBuilder 在搭建场景时赋值;
     // 留了 null 兜底: BuildBoard 里会自动 new 一个, 防止忘赋导致粉红色)
-    public Material matTile, matEdge, matGround, matEntry, matExit;
+    [SerializeField] public Material matTile, matEdge, matGround, matEntry, matExit, matGhost;
 
     // 静态单例: 全局唯一的"当前棋盘"引用, 其他脚本可以直接 Board.Instance 访问
     public static Board Instance;
@@ -83,7 +83,7 @@ public class Board : MonoBehaviour
         for (int x = 0; x < 6; x++)
         {
             Vector3 iniPos = new Vector3(ini.x + x, ini.y, ini.z);
-            ghostBlocks[x] = CommonPlace.Instance.Prim(x.ToString(), iniPos, new Vector3(1.05f, 1.16f, 1.05f), matTile);
+            ghostBlocks[x] = CommonPlace.Instance.Prim(x.ToString(), iniPos, new Vector3(1.05f, 1.16f, 1.05f), matGhost);
         }
     }
 
@@ -102,12 +102,13 @@ public class Board : MonoBehaviour
     // ---- 坐标系转换 -------------------------------------------------------------
     // 格子的中心在世界坐标哪里?
     // 棋盘以原点为中心: x 从 -(W-1)/2 到 +(W-1)/2 (即 -2~2), z 从 -(H-1)/2 到 +(H-1)/2 (即 -1.5~1.5)
-    // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = (x - 2, 0, z - 1.5)
+    // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = 相对于"有效区中心"的偏移:
+    //   x - (wSpan-1)/2, z - (hSpan-1)/2 (有效区 = 四边界内的区域, 见 Awake 的边界计算)
     public Vector3 CellToWorld(int x, int z)
     {
         float xx = x - (wSpan - 1) * 0.5f;
         float zz = z - (hSpan - 1) * 0.5f;
-        Debug.Log("translating "+ x + "," + z + " to " + xx + "," + zz);
+        //Debug.Log("translating "+ x + "," + z + " to " + xx + "," + zz);
         return new Vector3(xx, 0f, zz);
     }
 
@@ -139,42 +140,48 @@ public class Board : MonoBehaviour
     //专门的预览判定函数, 不改变棋盘状态, 用于鼠标拖动棋子时的实时预览
     public bool GhostlyTrial(Piece p, int px, int pz, int rot)
     {
-        bool usedOrNot = false;
-        bool boundIn = true;
+        GhostlyRecover();
+ 
         Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
             if (!InBounds(cx, cz))
-                boundIn = false;         // 任一格越界 -> 拒绝
-            else if (board[cx, cz].piece != null)
+                return false;         // 任一格越界 -> 拒绝
+        }
+
+        bool usedOrNot = false;
+
+        for(int i=0; i< cells.Length; i++)
+        {
+            int cx = cells[i].x, cz = cells[i].y;
+            if (board[cx,cz].piece != null)
             {
                 GhostlyMove(i, cx, cz, false);
                 usedOrNot = true;
             }
+            else
+                GhostlyMove(i,cx, cz, true);
         }
-        if(!usedOrNot)
-        {
-            GhostlyRecover();
-        }
-        if (!boundIn) return false;
         return !usedOrNot;
     }
 
 
 
     //将预览格子移动到指定位置, 并根据是否可放置改变颜色
+    //注意: 与 CellToWorld 一致, 按"有效区 (wSpan/hSpan)"居中, 而不是全棋盘 W/H ——
+    //      否则 boardStage > 0 时预览块位置会相对实际落子点偏移
     public void GhostlyMove(int ind, int ppx, int ppz, bool legible)
     {
-        ghostBlocks[ind].transform.position = new Vector3(ppx - (W - 1) * 0.5f, 0.8f, ppz - (H - 1) * 0.5f);
         if(legible)
         {
-            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(0.5f, 1f, 0.5f, 0.5f);
         }
         else
         {
-            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.1f);
+            ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.5f);
         }
+        ghostBlocks[ind].transform.position = new Vector3(ppx - (wSpan - 1) * 0.5f, 0.8f, ppz - (hSpan - 1) * 0.5f);
     }
 
     //将预览格子恢复到初始位置，不在场景中显示

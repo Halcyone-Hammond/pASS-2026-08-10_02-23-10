@@ -164,16 +164,13 @@ public class InputController : MonoBehaviour
     void ShowGhost(Piece pieceHover, Vector3 targetPos)
     {
         int x, z;
-        bool ok = false;
-        ok = board.WorldToCell(targetPos, out x, out z);
-        if(ok)      //在边界之中
+
+        if(!board.WorldToCell(targetPos, out x, out z))      //不在边界之中
         {
-            ok = board.GhostlyTrial(pieceHover, x, z, pieceHover.rot); // 预览放置 (内部会做越界/重叠校验)
+            board.GhostlyRecover();
+            return;
         }
-        else
-        {
-            // 越界就不预览呗
-        }
+        board.GhostlyTrial(pieceHover, x, z, pieceHover.rot); // 预览放置 (内部会做越界/重叠校验)
     }
 
     // 松手: 尝试放到最近的格子

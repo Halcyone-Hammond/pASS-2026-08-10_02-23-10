@@ -44,7 +44,7 @@ public class MatrixSelect : MonoBehaviour
     //这个不是tryselect，这个选中的是矩阵的按钮
     void SelectButton(int buttonIndex)
     {
-        int slot = buttonDatas[buttonIndex].slot;
+        int slot = buttonDatas[buttonIndex].slot;                       //用于返回在SaultUI和Piece能用的指针
         if (slot < 0) return; // 如果 slot 小于 0，说明没有有效的按钮数据，直接返回
         RectTransform target = buttons[buttonIndex].GetComponent<RectTransform>();
 

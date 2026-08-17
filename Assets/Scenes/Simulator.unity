@@ -2045,6 +2045,7 @@ MonoBehaviour:
   matGround: {fileID: 2100000, guid: 0bd2060cba7364f4d8487f2410ab0e93, type: 2}
   matEntry: {fileID: 2100000, guid: d22bb1429d5e5134b9e00de0f44d0d45, type: 2}
   matExit: {fileID: 2100000, guid: b87a933500de4ab42b2cad50fcb5b338, type: 2}
+  matGhost: {fileID: 2100000, guid: 232f3be54fcb5294882fb4e2ab35b24b, type: 2}
 --- !u!4 &601391102
 Transform:
   m_ObjectHideFlags: 0

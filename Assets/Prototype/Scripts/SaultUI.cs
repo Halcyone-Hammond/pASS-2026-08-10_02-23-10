@@ -39,7 +39,7 @@ public class SaultUI : MonoBehaviour
 
     // ---- UI 引用 (BuildUI 里创建并保存, 后续刷新/点击时用) ----
     public GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
-    [SerializeField] TMP_Text hintText, reqText, titleText, resultText, energyText; // 提示条 / 目标 / 标题 / 结算结果 / 能量
+    [SerializeField] TMP_Text hintText, reqText, valueText, titleText, resultText, energyText, valueJudge; // 提示条 / 目标 / 数值 / 属性标题 / 结算结果 / 能量 / 性别
     [SerializeField] Button minusBtn;  // [-] 按钮 (能量不足时置灰)
     [SerializeField] Button plusBtn;   // [+] 按钮
     Button selectBtn;
@@ -136,6 +136,7 @@ public class SaultUI : MonoBehaviour
 
         selectedSlot = s;
         RefreshValueTexts();
+        RefreshTitleText();
         ClearFocus();
         //Vector2Int[] 
     }
@@ -175,6 +176,7 @@ public class SaultUI : MonoBehaviour
         RefreshSlotButtons();
         RefreshValueTexts();
         RefreshEnergyText();
+        RefreshTitleText();
     }
 
     // 将矩阵Slot刷新，显示当前棋子
@@ -188,7 +190,6 @@ public class SaultUI : MonoBehaviour
             int slotLetter = current.slotLetters[i];
             int slotValue = current.ValueOf(slotLetter);
             Color slotColor = current.GetComponent<Piece>().matTints[slotLetter].color;                                 //matTint始终按照字母顺序排列，0=S,1=A,2=U,3=L
-
             panel.gameObject.GetComponent<MatrixSelect>().buttonOn(pos.x, pos.y, i, slotValue, slotLetter, slotColor);
         }
         
@@ -198,12 +199,24 @@ public class SaultUI : MonoBehaviour
     void RefreshValueTexts()
     {
         if (current == null) return;
-        for (int l = 0; l < 4; l++)
+        if (selectedSlot < 0 || selectedSlot >= 4) return;
+        int theLetter = current.slotLetters[selectedSlot];
+        if (valueText != null) 
         {
-            //if (valueTexts[l] != null) valueTexts[l].text = current.ValueOf(l).ToString();
-            if (minusBtn != null) minusBtn.interactable = energy > 0;
-            if (plusBtn != null) plusBtn.interactable = energy > 0;
+            int theValue = current.ValueOf(theLetter);
+            valueText.text = theValue.ToString();
+            if(valueJudge != null)
+            {
+                if (theValue > 0)
+                    valueJudge.text = "父性";
+                else if (theValue == 0)
+                    valueJudge.text = "啥也没";
+                else
+                    valueJudge.text = "母性";
+            }
         }
+        if (minusBtn != null) minusBtn.interactable = energy > 0;
+        if (plusBtn != null) plusBtn.interactable = energy > 0;
     }
 
     // 能量文字 (面板内 + 顶部提示条) 同步
@@ -211,6 +224,20 @@ public class SaultUI : MonoBehaviour
     {
         if (energyText != null) energyText.text = "剩余能量: " + energy;
         if (hintText != null) hintText.text = "点击棋子拖动 | R 旋转 | Space 切换视角 | 能量: " + energy;
+    }
+
+    void RefreshTitleText()
+    {
+        if (titleText != null)
+        {
+            if (selectedSlot < 0 || selectedSlot >= 4) return;
+            int theLetter = current.slotLetters[selectedSlot];
+            int theType = current.LetterAt(theLetter);
+            if (theType == 0)      { titleText.text= "结构(S)"; }
+            else if (theType == 1) { titleText.text = "样貌(A)"; }
+            else if (theType == 2) { titleText.text = "好用(U)"; }
+            else if (theType == 3) { titleText.text = "精神(L)"; }
+        }
     }
 
     //目标为在能量文字下显示目标文字。显示“目标: 通路 左缘行X → 右缘行Y, S ≥ Z”。”尚未完成。
