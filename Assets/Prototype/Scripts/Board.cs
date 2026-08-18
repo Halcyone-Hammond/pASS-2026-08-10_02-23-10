@@ -18,6 +18,7 @@ public class Board : MonoBehaviour
     public const int W = 7;              // 列数 (x 方向): 棋盘宽 7 格
     public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
     int boardStage = 0;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
+    bool visualYet = false;
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
@@ -357,6 +358,8 @@ public class Board : MonoBehaviour
         if (matEdge == null) matEdge = new Material(FindShader()) { color = new Color(0.13f, 0.14f, 0.17f) };
         if (matGround == null) matGround = new Material(FindShader()) { color = new Color(0.20f, 0.21f, 0.24f) };
 
+        if (visualYet) return;
+
         // 地面 (接收阴影)
         GameObject ground = CreatePrimitive(PrimitiveType.Plane); // 生成一个平面体
         ground.name = "Ground";
@@ -424,6 +427,7 @@ public class Board : MonoBehaviour
         BoxCollider bc = col.AddComponent<BoxCollider>(); // 挂上盒形碰撞体 (它自己就是一个组件)
         bc.center = new Vector3(0f, 0.05f, 0.8f);  // 中心略偏 z 正方向, 把下方托盘区也罩进来
         bc.size = new Vector3(W + 0.4f, 0.1f, H + 2.0f); // 横向盖满棋盘, 纵向额外 +2 覆盖托盘
+        visualYet = true;
     }
 
     // 生成一个基础几何体并去掉它自带的 Collider。

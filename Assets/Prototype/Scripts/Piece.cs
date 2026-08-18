@@ -99,12 +99,42 @@ public class Piece : MonoBehaviour
 
     private void Awake()
     {
+
         if(!placed)
         {
             trayPosition = transform.position; // 托盘位置 = 初始位置 (编辑器里放好棋子后, 运行时记住它)
         }
+        EnsureVisualData();
         EnsureTmpLabels();
         RefreshVisuals(); 
+    }
+
+    void EnsureVisualData()
+    {
+        bool fH = TryCacheExistingVisuals();
+    }
+
+    bool TryCacheExistingVisuals()
+    {
+        bool fullHouse = true;
+        int index = 0;
+        foreach(Transform child in transform)
+        {
+            if(child.name!="Top")
+            {
+                continue;
+            }
+            if(child.TryGetComponent(out Renderer renderer))
+            {
+                if (index<topRends.Length)
+                {
+                    topRends[index] = renderer;
+                    index++;
+                }
+                else fullHouse = false;
+            }
+        }
+        return fullHouse;
     }
 
     void EnsureTmpLabels()

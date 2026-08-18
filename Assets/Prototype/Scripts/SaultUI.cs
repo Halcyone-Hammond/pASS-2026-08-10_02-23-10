@@ -94,23 +94,20 @@ public class SaultUI : MonoBehaviour
     // ---- 交互回调 ---------------------------------------------------------------
 
     // 正在修改成实时预览按钮进行修改。
-    void OnSlotCycle(int slot)
+   public void SwapSlot(int a, int b)
     {
+        if ((a==b)) return;
         if (current == null) return;
-        int nl = (current.slotLetters[slot] + 1) % 4; // 下一个字母 (0..3 循环)
-        for (int j = 0; j < 4; j++)
-        {
-            if (j != slot && current.slotLetters[j] == nl)
-            {
-                current.slotLetters[j] = current.slotLetters[slot]; // 冲突槽位拿走旧字母
-                break;
-            }
-        }
-        current.slotLetters[slot] = nl; // 本槽位换上字母 nl
-        current.RefreshVisuals();  // 棋子视觉同步 (顶面颜色 + 标签文字)
-        RefreshSlotButtons();      // 面板按钮文字同步
-        ClearFocus();              // 清按钮焦点, 防止 Space 键误触发
-    }
+        if (a < 0 || b < 0) return;
+        if (a >= 4 || b >= 4) return;
+
+        //只动字母，根据字母寻址数据的话，字母动，数据的入口就动——数据跟着动。
+        (current.slotLetters[a], current.slotLetters[b]) = (current.slotLetters[b],current.slotLetters[a]);
+
+        current.RefreshVisuals();       //棋子变换
+        RefreshAll();                   //UI变换
+    }    
+
 
     // 点击 +/- 按钮: 修改某字母的数值, 消耗 1 点能量
     void OnValue(int delta)
