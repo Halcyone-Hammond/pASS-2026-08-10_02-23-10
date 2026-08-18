@@ -229,7 +229,7 @@ public class SaultUI : MonoBehaviour
         {
             if (selectedSlot < 0 || selectedSlot >= 4) return;
             int theLetter = current.slotLetters[selectedSlot];
-            int theType = current.LetterAt(theLetter);
+            int theType = theLetter;
             if (theType == 0)      { titleText.text= "结构(S)"; }
             else if (theType == 1) { titleText.text = "样貌(A)"; }
             else if (theType == 2) { titleText.text = "好用(U)"; }
