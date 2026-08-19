@@ -17,12 +17,12 @@ public class Board : MonoBehaviour
     // 常量 (const) 在编译期就固定, 运行时不能改, 适合这类"写死的规则数字"
     public const int W = 7;              // 列数 (x 方向): 棋盘宽 7 格
     public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
-    int boardStage = 0;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
+    int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
     bool visualYet = false;
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
-    int wSpan, hSpan;                       // 棋盘宽度/高度 (格子数)
+    float wCenter, hCenter;                       // 用于求出棋盘中心，实现对称发展
     public const int EntryX = 2;       // 入口所在行: 第 2 行 (x = 2)  应该随机以检查玩法是否灵活
     public const int EntryRow = 2;       // 入口所在列: 第 2 列 (z = 2)  应该随机以检查玩法是否灵活  
     public const int ExitX = 3;        // 出口所在行: 第 3 行 (x = 3)  应该随机以检查玩法是否灵活
@@ -67,8 +67,8 @@ public class Board : MonoBehaviour
         rightBorderX = W - boardStage;
         upperBorderZ = H - boardStage;
         lowerBorderZ = boardStage;
-        wSpan = rightBorderX - leftBorderX;
-        hSpan = upperBorderZ - lowerBorderZ;
+        wCenter = (rightBorderX + leftBorderX - 1) * 0.5f;
+        hCenter = (upperBorderZ + lowerBorderZ - 1) * 0.5f;
         Debug.Log("Board Awake: leftBorderX=" + leftBorderX + ", rightBorderX=" + rightBorderX + ", upperBorderZ=" + upperBorderZ + ", lowerBorderZ=" + lowerBorderZ);
 
         BuildBoard();
@@ -104,11 +104,10 @@ public class Board : MonoBehaviour
     // 格子的中心在世界坐标哪里?
     // 棋盘以原点为中心: x 从 -(W-1)/2 到 +(W-1)/2 (即 -2~2), z 从 -(H-1)/2 到 +(H-1)/2 (即 -1.5~1.5)
     // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = 相对于"有效区中心"的偏移:
-    //   x - (wSpan-1)/2, z - (hSpan-1)/2 (有效区 = 四边界内的区域, 见 Awake 的边界计算)
     public Vector3 CellToWorld(int x, int z)
     {
-        float xx = x - (wSpan - 1) * 0.5f;
-        float zz = z - (hSpan - 1) * 0.5f;
+        float xx = x - wCenter;
+        float zz = z - hCenter;
         //Debug.Log("translating "+ x + "," + z + " to " + xx + "," + zz);
         return new Vector3(xx, 0f, zz);
     }
@@ -119,8 +118,8 @@ public class Board : MonoBehaviour
     // (C# 的 out 参数: 方法内必须给它赋值, 调用方用 out int x, out int z 接收)
     public bool WorldToCell(Vector3 p, out int x, out int z)
     {
-        x = Mathf.RoundToInt(p.x + (wSpan - 1) * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
-        z = Mathf.RoundToInt(p.z + (hSpan - 1) * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
+        x = Mathf.RoundToInt(p.x + wCenter * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
+        z = Mathf.RoundToInt(p.z + hCenter * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
         return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ;                              // 这一套要求始终是一个以原点为中心的棋盘
     }
 
@@ -170,7 +169,7 @@ public class Board : MonoBehaviour
 
 
     //将预览格子移动到指定位置, 并根据是否可放置改变颜色
-    //注意: 与 CellToWorld 一致, 按"有效区 (wSpan/hSpan)"居中, 而不是全棋盘 W/H ——
+    //注意: 与 CellToWorld 一致, 按"wCenter/hCenter"居中, 而不是全棋盘 W/H ——
     //      否则 boardStage > 0 时预览块位置会相对实际落子点偏移
     public void GhostlyMove(int ind, int ppx, int ppz, bool legible)
     {
@@ -182,7 +181,7 @@ public class Board : MonoBehaviour
         {
             ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.5f);
         }
-        ghostBlocks[ind].transform.position = new Vector3(ppx - (wSpan - 1) * 0.5f, 0.8f, ppz - (hSpan - 1) * 0.5f);
+        ghostBlocks[ind].transform.position = new Vector3(ppx - wCenter * 0.5f, 0.8f, ppz - hCenter * 0.5f);
     }
 
     //将预览格子恢复到初始位置，不在场景中显示
@@ -382,26 +381,33 @@ public class Board : MonoBehaviour
             }
         }
 
+        float hh = upperBorderZ-lowerBorderZ;
+        float ww = rightBorderX-leftBorderX;
+        float h0 = 0;
+        float w0 = 0;
+
+        Debug.Log(hh+" "+ww+" "+h0+" "+w0);
+
         // 深色边框 (四条细立方体围一圈)
         GameObject bN = CreatePrimitive(PrimitiveType.Cube);
         bN.name = "BorderN"; bN.transform.SetParent(transform, false);
-        bN.transform.localPosition = new Vector3(0f, 0.03f, H * 0.5f + 0.04f);   // 北边 (z 正方向)
-        bN.transform.localScale = new Vector3(W + 0.16f, 0.08f, 0.08f); SetMat(bN, matEdge);
+        bN.transform.localPosition = new Vector3(w0, 0.03f, hh * 0.5f + 0.04f);   // 北边 (z 正方向)
+        bN.transform.localScale = new Vector3(ww + 0.16f, 0.08f, 0.08f); SetMat(bN, matEdge);
 
         GameObject bS = CreatePrimitive(PrimitiveType.Cube);
         bS.name = "BorderS"; bS.transform.SetParent(transform, false);
-        bS.transform.localPosition = new Vector3(0f, 0.03f, -(H * 0.5f + 0.04f)); // 南边
-        bS.transform.localScale = new Vector3(W + 0.16f, 0.08f, 0.08f); SetMat(bS, matEdge);
+        bS.transform.localPosition = new Vector3(w0, 0.03f, -(hh * 0.5f + 0.04f)); // 南边
+        bS.transform.localScale = new Vector3(ww + 0.16f, 0.08f, 0.08f); SetMat(bS, matEdge);
 
         GameObject bE = CreatePrimitive(PrimitiveType.Cube);
         bE.name = "BorderE"; bE.transform.SetParent(transform, false);
-        bE.transform.localPosition = new Vector3(W * 0.5f + 0.04f, 0.03f, 0f);    // 东边
-        bE.transform.localScale = new Vector3(0.08f, 0.08f, H + 0.16f); SetMat(bE, matEdge);
+        bE.transform.localPosition = new Vector3(ww * 0.5f + 0.04f, 0.03f, h0);    // 东边
+        bE.transform.localScale = new Vector3(0.08f, 0.08f, hh + 0.16f); SetMat(bE, matEdge);
 
         GameObject bW = CreatePrimitive(PrimitiveType.Cube);
         bW.name = "BorderW"; bW.transform.SetParent(transform, false);
-        bW.transform.localPosition = new Vector3(-(W * 0.5f + 0.04f), 0.03f, 0f); // 西边
-        bW.transform.localScale = new Vector3(0.08f, 0.08f, H + 0.16f); SetMat(bW, matEdge);
+        bW.transform.localPosition = new Vector3(-(ww * 0.5f + 0.04f), 0.03f, h0); // 西边
+        bW.transform.localScale = new Vector3(0.08f, 0.08f, hh + 0.16f); SetMat(bW, matEdge);
 
         // 入口 / 出口 标记 (绿 = 入口 左缘行2, 红 = 出口 右缘行3)
         if (matEntry != null)

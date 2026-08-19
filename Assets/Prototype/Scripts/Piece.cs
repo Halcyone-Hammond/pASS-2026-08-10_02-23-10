@@ -112,27 +112,22 @@ public class Piece : MonoBehaviour
     void EnsureVisualData()
     {
         bool fH = TryCacheExistingVisuals();
+        Debug.Log(fH);
     }
 
     bool TryCacheExistingVisuals()
     {
         bool fullHouse = true;
-        int index = 0;
-        foreach(Transform child in transform)
+        for(int i = 0; i < 4;i++)
         {
-            if(child.name!="Top")
+            Transform top = transform.Find("Top_" + i.ToString());
+            if (top != null)
             {
-                continue;
+                topRends[i] = top.GetComponent<Renderer>();
             }
-            if(child.TryGetComponent(out Renderer renderer))
-            {
-                if (index<topRends.Length)
-                {
-                    topRends[index] = renderer;
-                    index++;
-                }
-                else fullHouse = false;
-            }
+            else topRends[i] = null;
+
+            if (topRends[i] == null) fullHouse = false;
         }
         return fullHouse;
     }
