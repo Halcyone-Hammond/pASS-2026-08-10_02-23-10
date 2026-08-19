@@ -244,11 +244,11 @@ public class Piece : MonoBehaviour
             // 底座: 略大的深色方块垫在下面, 露出边缘形成"深色边线"效果
             GameObject b = Prim("Base", lp + new Vector3(0f, 0.12f, 0f), new Vector3(1.02f, 0.12f, 1.02f), matDark);
             // 顶面: 略小的浅色方块, 颜色由字母决定 (RefreshVisuals 会换)
-            GameObject t = Prim("Top", lp + new Vector3(0f, 0.26f, 0f), new Vector3(0.94f, 0.16f, 0.94f), matLight);
+            GameObject t = Prim($"Top_{i}", lp + new Vector3(0f, 0.26f, 0f), new Vector3(0.94f, 0.16f, 0.94f), matLight);
             topRends[i] = t.GetComponent<Renderer>(); // 记住顶面渲染器, 之后好换色
 
             // 字母标签: 传统 TextMesh (3D 世界里的文字, 不是 UI 文字), 平躺在顶面上
-            GameObject lb = new GameObject("Label");
+            GameObject lb = new GameObject($"Label_{i}");
             lb.transform.SetParent(transform, false);
             lb.transform.localPosition = lp + new Vector3(0f, 0.37f, 0f); // 浮在顶面上方
             lb.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 绕 X 转 90°, 让文字面朝上

@@ -118,8 +118,8 @@ public class Board : MonoBehaviour
     // (C# 的 out 参数: 方法内必须给它赋值, 调用方用 out int x, out int z 接收)
     public bool WorldToCell(Vector3 p, out int x, out int z)
     {
-        x = Mathf.RoundToInt(p.x + wCenter * 0.5f);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
-        z = Mathf.RoundToInt(p.z + hCenter * 0.5f);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
+        x = Mathf.RoundToInt(p.x + wCenter);                             // 平移回以原点为中心的坐标系, 再四舍五入取最近的整数格
+        z = Mathf.RoundToInt(p.z + hCenter);                             // 本质为将点与格子中心对齐, 取最近的格子坐标
         return x >= leftBorderX && x < rightBorderX && z >= lowerBorderZ && z < upperBorderZ;                              // 这一套要求始终是一个以原点为中心的棋盘
     }
 
@@ -181,7 +181,7 @@ public class Board : MonoBehaviour
         {
             ghostBlocks[ind].GetComponent<Renderer>().material.color = new Color(1f, 0.5f, 0.5f, 0.5f);
         }
-        ghostBlocks[ind].transform.position = new Vector3(ppx - wCenter * 0.5f, 0.8f, ppz - hCenter * 0.5f);
+        ghostBlocks[ind].transform.position = new Vector3(ppx - wCenter, 0.8f, ppz - hCenter);
     }
 
     //将预览格子恢复到初始位置，不在场景中显示
