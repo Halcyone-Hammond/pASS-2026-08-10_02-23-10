@@ -39,7 +39,6 @@ public class Board : MonoBehaviour
     {
         public Piece piece;   // 占据这个格子的棋子; null = 空格
         public int slot = -1; // 该棋子的第几个槽位 (0~3) 占了这个格子; -1 = 无
-        public bool boardUsed = false;
     }
 
     // 核心数组: [x, z] 下标对应格子位置, 与设计文档里的 BoardCell[5,4] 一致。

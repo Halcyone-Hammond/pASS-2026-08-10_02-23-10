@@ -1391,6 +1391,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c91afb30b4f5ca1428d9704d98ac55c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SaultUI
+  energy: 10
   panel: {fileID: 1396212822}
   hintText: {fileID: 1859633249}
   reqText: {fileID: 1814369882}
@@ -3931,6 +3932,52 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1048837697}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1067044228
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1067044230}
+  - component: {fileID: 1067044229}
+  m_Layer: 0
+  m_Name: StateMachine
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1067044229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1067044228}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cdc49826d1bfcf41be89cc41aa94521, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  theBoard: {fileID: 0}
+  ui: {fileID: 0}
+--- !u!4 &1067044230
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1067044228}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.64802, y: 0, z: 3.86135}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1144547243
 GameObject:
   m_ObjectHideFlags: 0
@@ -4968,6 +5015,8 @@ MonoBehaviour:
   placed: 0
   slotLetters: 00000000010000000200000003000000
   attrValues: 01000000010000000100000001000000
+  slotPerks: 00000000000000000000000000000000
+  attrValues2: 01000000010000000100000001000000
   matDark: {fileID: 2100000, guid: 4262bb09a2dfba0498d2ad5837683a91, type: 2}
   matLight: {fileID: 2100000, guid: a4559fa9e6bdc4247b9ffb776bf48133, type: 2}
   matTints:
@@ -5158,6 +5207,8 @@ MonoBehaviour:
   placed: 0
   slotLetters: 00000000010000000200000003000000
   attrValues: 01000000010000000100000001000000
+  slotPerks: 00000000000000000000000000000000
+  attrValues2: 01000000010000000100000001000000
   matDark: {fileID: 2100000, guid: 4262bb09a2dfba0498d2ad5837683a91, type: 2}
   matLight: {fileID: 2100000, guid: a4559fa9e6bdc4247b9ffb776bf48133, type: 2}
   matTints:
@@ -5364,6 +5415,8 @@ MonoBehaviour:
   placed: 0
   slotLetters: 00000000010000000200000003000000
   attrValues: 01000000010000000100000001000000
+  slotPerks: 00000000000000000000000000000000
+  attrValues2: 01000000010000000100000001000000
   matDark: {fileID: 2100000, guid: 4262bb09a2dfba0498d2ad5837683a91, type: 2}
   matLight: {fileID: 2100000, guid: a4559fa9e6bdc4247b9ffb776bf48133, type: 2}
   matTints:
@@ -6340,6 +6393,8 @@ MonoBehaviour:
   placed: 0
   slotLetters: 00000000010000000200000003000000
   attrValues: 01000000010000000100000001000000
+  slotPerks: 00000000000000000000000000000000
+  attrValues2: 01000000010000000100000001000000
   matDark: {fileID: 2100000, guid: 4262bb09a2dfba0498d2ad5837683a91, type: 2}
   matLight: {fileID: 2100000, guid: a4559fa9e6bdc4247b9ffb776bf48133, type: 2}
   matTints:
@@ -8429,4 +8484,5 @@ SceneRoots:
   - {fileID: 444031248}
   - {fileID: 2054690188}
   - {fileID: 478064955}
+  - {fileID: 1067044230}
   - {fileID: 1809436495}

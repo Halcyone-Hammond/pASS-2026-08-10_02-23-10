@@ -52,6 +52,8 @@ public class Piece : MonoBehaviour
 
     public int[] slotLetters = new int[] { 0, 1, 2, 3 }; // 槽位 -> 字母 (S=0,A=1,U=2,L=3)，根据指针对应字母
     public int[] attrValues = new int[] { 1, 1, 1, 1 };  // 字母 -> 数值 (初始全 1)，根据字母对应
+    public int[] slotPerks = new int[] { 0, 0, 0, 0 };
+    public int[] attrValues2 = new int[] { 1, 1, 1, 1 };
 
     // 视觉材质: matDark 深色底座 / matLight 顶面(会被字母色替换) / matTints 四种字母色
     public Material matDark, matLight;

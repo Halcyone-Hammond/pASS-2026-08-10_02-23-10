@@ -35,7 +35,7 @@ public class SaultUI : MonoBehaviour
     const int MaxValue = 10; // 数值上限 (原型默认值, 防止点出离谱数字)
 
     Piece current;    // 当前面板正在显示的棋子 (null = 没有选中)
-    int energy = 10;  // 玩家能量 (原型默认 10; 每次 +/- 消耗 1)
+    public int energy = 10;  // 玩家能量 (原型默认 10; 每次 +/- 消耗 1)
 
     // ---- UI 引用 (BuildUI 里创建并保存, 后续刷新/点击时用) ----
     public GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
