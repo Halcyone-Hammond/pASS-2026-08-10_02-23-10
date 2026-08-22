@@ -189,8 +189,8 @@ public class Piece : MonoBehaviour
     public void GoToTray()
     {
         placed = false;
-        rot = 0;
-        Debug.Log($"GoToTray: {shapeName} -> {trayPosition}");
+        //if(rot == null) rot = 0;
+        //Debug.Log($"GoToTray: {shapeName} -> {trayPosition}");
         transform.position = trayPosition;
         SetVisualRotation(0);
     }

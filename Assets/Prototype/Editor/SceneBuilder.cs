@@ -120,8 +120,6 @@ public static class SceneBuilder
         // 控制器
         GameObject gameGO = new GameObject("Game");
         InputController ic = gameGO.AddComponent<InputController>();
-        ic.board = board; // 引用棋盘
-        ic.ui = ui;       // 引用面板
 
         Debug.Log("Simulator prototype built → Assets/Scenes/Simulator.unity (press Play to test)");
     }

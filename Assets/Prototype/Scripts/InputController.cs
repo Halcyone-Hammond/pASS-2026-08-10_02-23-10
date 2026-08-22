@@ -18,8 +18,10 @@ using UnityEngine.InputSystem;  // 新版输入系统 (本项目用的是新输�
 // ============================================================
 public class InputController : MonoBehaviour
 {
-    public Board board;   // 棋盘引用 (SceneBuilder 搭建场景时赋值)
-    public SaultUI ui;    // 右侧配置面板引用 (选中棋子后要显示它)
+    [SerializeField] Board board;   // 棋盘引用 (SceneBuilder 搭建场景时赋值)
+    [SerializeField] SaultUI ui;    // 右侧配置面板引用 (选中棋子后要显示它)
+    [SerializeField] StateManager stateManager;
+
 
     // ---- 拖拽状态 ---------------------------------------------------------------
     bool oriPlaced;        // 拖拽开始时棋子是否已放置 (true = 原来在棋盘上, false = 托盘里)
@@ -54,9 +56,7 @@ public class InputController : MonoBehaviour
             else if (mouse.leftButton.isPressed && dragging) DragUpdate(mousePos);
             else if (mouse.leftButton.wasReleasedThisFrame && dragging) DragEnd();
         }
-        // R 键旋转
-        Keyboard kb = Keyboard.current;
-        if (kb != null && kb.rKey.wasPressedThisFrame) RotateSelected();
+        // 将采用按键旋转……
     }
 
     //鼠标悬浮高亮 
@@ -133,6 +133,7 @@ public class InputController : MonoBehaviour
         if(oriPlaced)
         {
             origX = p.bx; origZ = p.bz; origRot = p.rot; // 记录原来的格子坐标和旋转角度
+            stateManager.Pending();
             // 关键: 拖起来的第一时间就从棋盘数组里"摘下来",
             // 这样拖拽过程中它不占格子, 重叠校验也不用考虑它自己
             if (board != null) board.RemovePiece(p);
@@ -140,7 +141,8 @@ public class InputController : MonoBehaviour
         }
         else
         {
-            origRot = p.rot; // 托盘里没有格子坐标, 只记录旋转角度
+            stateManager.Pending();
+            //origRot = p.rot; // 托盘里没有格子坐标, 只记录旋转角度
         }
     }
 
@@ -176,7 +178,11 @@ public class InputController : MonoBehaviour
     // 松手: 尝试放到最近的格子
     void DragEnd()
     {
-        if (selected == null) return;
+        if (selected == null)
+        {
+            stateManager.CancelPending();
+            return;
+        }
         int x, z;
         bool ok = false;
         board.GhostlyRecover();
@@ -189,19 +195,28 @@ public class InputController : MonoBehaviour
                 ok = board.TryPlace(selected, x, z, selected.rot);
                 // 放不下且原来就在棋盘上 -> 放回原位
                 if (!ok && oriPlaced)
+                {
+                    stateManager.CancelPending();
                     ok = board.TryPlace(selected, origX, origZ, origRot);
+                }
                 else if (!ok && !oriPlaced)
                 {
+                    stateManager.CancelPending();
                     selected.GoToTray();
                     ui.Hide();
                 }
                 else
                 {
+                    stateManager.PushTemp();
                     if (ui != null) ui.ShowFor(selected); // 弹出 SAUL 配置面板
                 }
             }
             else
             {
+                if(!oriPlaced)
+                    stateManager.CancelPending();
+                else
+                    stateManager.PushTemp();
                 selected.GoToTray(); // 都失败 (原来在托盘) -> 直接回托盘，无需改变board数组，因为它本来就不在里面
                 ui.Hide();
             }

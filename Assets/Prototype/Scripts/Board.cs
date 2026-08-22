@@ -51,6 +51,8 @@ public class Board : MonoBehaviour
     // 留了 null 兜底: BuildBoard 里会自动 new 一个, 防止忘赋导致粉红色)
     [SerializeField] public Material matTile, matEdge, matGround, matEntry, matExit, matGhost;
 
+    StateManager stateManager;
+
     // 静态单例: 全局唯一的"当前棋盘"引用, 其他脚本可以直接 Board.Instance 访问
     public static Board Instance;
 
@@ -71,11 +73,22 @@ public class Board : MonoBehaviour
         Debug.Log("Board Awake: leftBorderX=" + leftBorderX + ", rightBorderX=" + rightBorderX + ", upperBorderZ=" + upperBorderZ + ", lowerBorderZ=" + lowerBorderZ);
 
         BuildBoard();
-
+       
         // 二维数组的每个元素都要实例化, 否则访问 board[x,z].piece 会空引用报错
         for (int x = 0; x < W; x++)
             for (int z = 0; z < H; z++)
                 board[x, z] = new BoardCell();
+    }
+
+    public void ClearBoardCells()
+    {
+        for (int x = 0; x < W; x++)
+            for (int z = 0; z < H; z++)
+            {
+                board[x, z].piece = null;
+                board[x, z].slot = -1;
+            }
+        return;
     }
 
     private void Start()
@@ -85,6 +98,7 @@ public class Board : MonoBehaviour
             Vector3 iniPos = new Vector3(ini.x + x, ini.y, ini.z);
             ghostBlocks[x] = CommonPlace.Instance.Prim(x.ToString(), iniPos, new Vector3(1.05f, 1.16f, 1.05f), matGhost);
         }
+        if (stateManager == null) stateManager = FindAnyObjectByType<StateManager>();
     }
 
     // ---- 随机化入口/出口/目标 ---------------------------------------------------
@@ -101,7 +115,7 @@ public class Board : MonoBehaviour
 
     // ---- 坐标系转换 -------------------------------------------------------------
     // 格子的中心在世界坐标哪里?
-    // 棋盘以原点为中心: x 从 -(W-1)/2 到 +(W-1)/2 (即 -2~2), z 从 -(H-1)/2 到 +(H-1)/2 (即 -1.5~1.5)
+    // 棋盘以原点为中心
     // 格子尺寸 = 1 单位, 所以格子 (x,z) 的中心 = 相对于"有效区中心"的偏移:
     public Vector3 CellToWorld(int x, int z)
     {
@@ -206,6 +220,7 @@ public class Board : MonoBehaviour
             if (board[cx, cz].piece != null) return false; // 任一格被占 -> 拒绝
         }
         // 校验全部通过, 开始落子:
+
         RemovePiece(p); // 先把棋子原来的占位清掉 (如果它之前放在别处), 避免自冲突
         for (int i = 0; i < cells.Length; i++)
         {

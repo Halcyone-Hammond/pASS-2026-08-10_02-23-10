@@ -1,9 +1,7 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.Events;      // UnityAction: 按钮回调的委托类型
 using UnityEngine.EventSystems; // EventSystem: 清按钮焦点用 (防止 Space 键重复触发按钮)
 using UnityEngine.UI;          // 所有 UI 组件: Text / Button / Image / LayoutGroup ...
-using static UnityEngine.Rendering.DebugUI.Table;
 
 // ============================================================
 // SaultUI —— S.A.U.L. 配置面板 (右侧 UI)
@@ -37,12 +35,16 @@ public class SaultUI : MonoBehaviour
     Piece current;    // 当前面板正在显示的棋子 (null = 没有选中)
     public int energy = 10;  // 玩家能量 (原型默认 10; 每次 +/- 消耗 1)
 
+    StateManager stateManager;
+
     // ---- UI 引用 (BuildUI 里创建并保存, 后续刷新/点击时用) ----
     public GameObject panel;                    // 右侧面板本体 (隐藏/显示它)
     [SerializeField] TMP_Text hintText, reqText, valueText, titleText, resultText, energyText, valueJudge; // 提示条 / 目标 / 数值 / 属性标题 / 结算结果 / 能量 / 性别
     [SerializeField] Button minusBtn;  // [-] 按钮 (能量不足时置灰)
     [SerializeField] Button plusBtn;   // [+] 按钮
-    Button selectBtn;
+    [SerializeField] public Button undoBtn;
+    [SerializeField] public Button redoBtn;
+
     int selectedSlot = -1;
 
     // Unity 生命周期: Awake 最先执行, 这里把整套 UI 搭出来
@@ -56,6 +58,7 @@ public class SaultUI : MonoBehaviour
     {
         if (board == null) board = FindAnyObjectByType<Board>();
         if (camSwitch == null) camSwitch = FindAnyObjectByType<CameraSwitcher>();
+        if (stateManager == null) stateManager = FindAnyObjectByType<StateManager>();
         Hide();
         RefreshEnergyText();
         RefreshTargetText();
@@ -63,6 +66,9 @@ public class SaultUI : MonoBehaviour
         //按钮事件监听
         plusBtn.onClick.AddListener(() => OnValue(1));
         minusBtn.onClick.AddListener(() => OnValue(-1));
+        redoBtn.onClick.AddListener(() => RedoStart());
+        undoBtn.onClick.AddListener(() => UndoStart());
+
     }
 
     // 兜底: 正常情况下 Canvas 和 EventSystem 由 SceneBuilder 在编辑模式建好并保存进场景;
@@ -91,6 +97,19 @@ public class SaultUI : MonoBehaviour
         }
     }
 
+    // ---- 撤销重做按钮实现 -------------------------------------------------------
+
+    void UndoStart()
+    {
+        stateManager.Undo();
+    }
+
+    void RedoStart()
+    {
+        stateManager.Redo();
+    }
+
+
     // ---- 交互回调 ---------------------------------------------------------------
 
     // 正在修改成实时预览按钮进行修改。
@@ -101,6 +120,7 @@ public class SaultUI : MonoBehaviour
         if (a < 0 || b < 0) return;
         if (a >= 4 || b >= 4) return;
 
+        stateManager.Record();
         //只动字母，根据字母寻址数据的话，字母动，数据的入口就动——数据跟着动。
         (current.slotLetters[a], current.slotLetters[b]) = (current.slotLetters[b],current.slotLetters[a]);
 
@@ -119,6 +139,7 @@ public class SaultUI : MonoBehaviour
         int newValue =  Mathf.Clamp(oldValue + delta, 0-MaxValue, MaxValue);   // 限制在 -10~10
 
         if (newValue == oldValue) return;                                                           //动不了了，已在边界 (-10 或 10), 不消耗能量
+        stateManager.Record();
         current.SetValue(theLetter, newValue);
         energy--; // 每次 +1/-1 消耗 1 能量
 
@@ -168,7 +189,7 @@ public class SaultUI : MonoBehaviour
 
     // ---- 刷新显示 ---------------------------------------------------------------
 
-    void RefreshAll()
+    public void RefreshAll()
     {
         RefreshSlotButtons();
         RefreshValueTexts();
@@ -225,6 +246,7 @@ public class SaultUI : MonoBehaviour
 
     void RefreshTitleText()
     {
+        if (current == null) return;
         if (titleText != null)
         {
             if (selectedSlot < 0 || selectedSlot >= 4) return;

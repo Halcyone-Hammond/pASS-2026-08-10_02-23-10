@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.TextCore.Text;
 
 //所有共用的组件都放在这里, 方便其他脚本引用
 public class CommonPlace : MonoBehaviour
