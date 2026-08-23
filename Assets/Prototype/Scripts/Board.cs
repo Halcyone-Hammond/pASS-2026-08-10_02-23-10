@@ -121,7 +121,7 @@ public class Board : MonoBehaviour
         {
             for (int i = leftBorderX; i < rightBorderX; i++)
             { entryX[i] = true; exitX[i] = true; }
-            for (int i = upperBorderZ; i < lowerBorderZ; i++)
+            for (int i = lowerBorderZ; i < upperBorderZ; i++)
             { entryZ[i] = true; exitZ[i] = true; }
         }
         else if (levelDifficulty == 1)
