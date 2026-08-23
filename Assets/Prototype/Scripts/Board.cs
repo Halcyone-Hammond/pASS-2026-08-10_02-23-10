@@ -19,15 +19,25 @@ public class Board : MonoBehaviour
     public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
     int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
     bool visualYet = false;
+    int levelDifficulty = 0;
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
     float wCenter, hCenter;                       // 用于求出棋盘中心，实现对称发展
-    public const int EntryX = 2;       // 入口所在行: 第 2 行 (x = 2)  应该随机以检查玩法是否灵活
-    public const int EntryRow = 2;       // 入口所在列: 第 2 列 (z = 2)  应该随机以检查玩法是否灵活  
-    public const int ExitX = 3;        // 出口所在行: 第 3 行 (x = 3)  应该随机以检查玩法是否灵活
-    public const int ExitRow = 3;        // 出口所在列: 第 3 列 (z = 3)  应该随机以检查玩法是否灵活
-    public const int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS  提供一个
+    bool[] entryX = new bool[7];
+    bool[] exitX = new bool[7];
+    bool[] entryZ = new bool[6];
+    bool[] exitZ = new bool[6];
+
+    //NPC老师的事件要够丰富够多……
+    [SerializeField] public int EntryX = 2;       // 入口所在行: 第 2 行 (x = 2)  应该随机以检查玩法是否灵活
+    [SerializeField] public int EntryRow = 2;       // 入口所在列: 第 2 列 (z = 2)  应该随机以检查玩法是否灵活
+    [SerializeField] public int ExitX = 3;        // 出口所在行: 第 3 行 (x = 3)  应该随机以检查玩法是否灵活
+    [SerializeField] public int ExitRow = 3;        // 出口所在列: 第 3 列 (z = 3)  应该随机以检查玩法是否灵活
+    [SerializeField] public int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS  提供一个
+    [SerializeField] public int PerkT = 1;          //提供什么呢？提供基于当前数值的Perk，倍增分数
+    [SerializeField] public int TeacherReq1 = 10;    //老师要求（两个数值，三个阶段，三个后续阶段不同的优势）
+    [SerializeField] public int TeacherReq2 = 15;
 
     public GameObject[] ghostBlocks = new GameObject[6]; // 用于显示预览的格子 (鼠标拖动棋子时显示)
 
@@ -41,7 +51,7 @@ public class Board : MonoBehaviour
         public int slot = -1; // 该棋子的第几个槽位 (0~3) 占了这个格子; -1 = 无
     }
 
-    // 核心数组: [x, z] 下标对应格子位置, 与设计文档里的 BoardCell[5,4] 一致。
+    // 核心数组: [x, z] 下标对应格子位置, 与设计文档里的 BoardCell[7,6] 一致。
     // 注意: 数组元素是引用类型, 必须先 new 出每个 BoardCell 才能用 (见 Awake)。
     public BoardCell[,] board = new BoardCell[W, H];
     // 场景里所有棋子的清单 (含已放置的和托盘里的), 方便遍历查找
@@ -78,6 +88,8 @@ public class Board : MonoBehaviour
         for (int x = 0; x < W; x++)
             for (int z = 0; z < H; z++)
                 board[x, z] = new BoardCell();
+
+        RandomTeacher();
     }
 
     public void ClearBoardCells()
@@ -102,9 +114,20 @@ public class Board : MonoBehaviour
     }
 
     // ---- 随机化入口/出口/目标 ---------------------------------------------------
-    public void randomTeacher()
+    public void RandomTeacher()
     {
-        //暂时不知道怎么随机化
+        //目前的设计状态下，先确定EntryX,EntryZ,exitX,exitZ——以及对于数值的要求
+        if (levelDifficulty == 0)
+        {
+            for (int i = leftBorderX; i < rightBorderX; i++)
+            { entryX[i] = true; exitX[i] = true; }
+            for (int i = upperBorderZ; i < lowerBorderZ; i++)
+            { entryZ[i] = true; exitZ[i] = true; }
+        }
+        else if (levelDifficulty == 1)
+        {
+            int entranceX = Random.Range(leftBorderX, rightBorderX-1);
+        }
     }
 
     // 把棋子登记进 allPieces 清单 (用 Contains 防重复登记)
@@ -250,75 +273,104 @@ public class Board : MonoBehaviour
         p.placed = false;
     }
 
-    // ---- 通路判定 (BFS 广度优先搜索) ---------------------------------------------
-    // 规则: 上下左右四个方向相邻的"已占用格子"视为连通。
-    // 问题: 从入口格 (0,2) 出发, 能不能沿占用格走到出口格 (4,3)?
-    // BFS 的特点: 从起点逐层向外扩散 (像水波), 一定能找到路径, 且实现简单。
+    // ---- 贯通区域判定 (连通分量 BFS) ---------------------------------------------
+    // 规则仍沿用原型现有定义: 上下左右相邻、并且都被棋子占用的格子互相连通。
+    // 字母不会在这里阻断水流; S/A/U/L 的区别仍只由 Submit 在结算数值时处理。
+    //
+    // 这里求的已经不是“指定入口到指定出口的一条最短路径”，而是：
+    //   1. 用 BFS 找出棋盘上的每一个独立连通分量；
+    //   2. 检查该分量是否同时接触有效的上边界入口和下边界出口；
+    //   3. 把所有满足条件的分量完整加入 path，最后得到全部贯通区域的并集。
+    //
+    // 因而一个贯通分量里的分叉、环路以及会进水的死胡同支路也都会被计入。
+    // 这是“整片已经通水的管网”语义，而不是“从中挑一条代表路线”的语义。
+    //
+    // 方法名和 out 参数名暂时保留为 FindPath/path，是为了不破坏 SaultUI 等现有调用，
+    // 也方便以后恢复单点最短路径玩法；当前 path 实际表示“贯通区域中的全部格子”。
     public bool FindPath(out List<BoardCell> path)
     {
         path = new List<BoardCell>();
-        if (board[EntryX, EntryRow].piece == null) return false; // 入口格没人占 -> 不通
-        if (board[ExitX, ExitRow].piece == null) return false;   // 出口格没人占 -> 不通
 
-        // vis 记录哪些格已访问 (防止绕圈); prevX/prevZ 记录每个格"从哪个格来的"
-        // (父节点), 用于最后从出口回溯出整条路径
-        bool[,] vis = new bool[W, H];
-        int[,] prevX = new int[W, H];
-        int[,] prevZ = new int[W, H];
-        for (int x = 0; x < W; x++)
-            for (int z = 0; z < H; z++) { prevX[x, z] = -1; prevZ[x, z] = -1; } // -1 = 还没有父节点
-
-        // 队列: BFS 的核心结构, 先进先出, 保证逐层扩散
-        Queue<Vector2Int> q = new Queue<Vector2Int>();
-        q.Enqueue(new Vector2Int(EntryX, EntryRow)); // 从入口开始
-        vis[EntryX, EntryRow] = true;
-
-        // 四个方向的增量: dx[0..3] 配 dz[0..3] 组成 (右、左、上、下) 四个移动方向
+        // visited 是整次扫描共用的访问表。
+        // 一个格子一旦归入某个连通分量，后续外层循环就不会再次搜索它，
+        // 因此总工作量与有效棋盘格数量基本成正比。
+        bool[,] visited = new bool[W, H];
         int[] dx = { 1, -1, 0, 0 };
         int[] dz = { 0, 0, 1, -1 };
-        bool found = false;
 
-        while (q.Count > 0) // 队列不空就一直扩散
+        // 只扫描当前 boardStage 划定的有效棋盘范围，不处理外围被锁住的格子。
+        for (int startX = leftBorderX; startX < rightBorderX; startX++)
         {
-            Vector2Int c = q.Dequeue();               // 取出队首格子
-            if (c.x == ExitX && c.y == ExitRow) { found = true; break; } // 到达出口!
-            for (int d = 0; d < 4; d++)               // 尝试向四个方向各走一步
+            for (int startZ = lowerBorderZ; startZ < upperBorderZ; startZ++)
             {
-                int nx = c.x + dx[d], nz = c.y + dz[d];
-                if (!InBounds(nx, nz) || vis[nx, nz]) continue; // 越界或已访问 -> 跳过
-                if (board[nx, nz].piece == null) continue;      // 空格子不连通 -> 跳过
-                vis[nx, nz] = true;                             // 标记已访问
-                prevX[nx, nz] = c.x;                            // 记录父节点 (回溯用)
-                prevZ[nx, nz] = c.y;
-                q.Enqueue(new Vector2Int(nx, nz));              // 入队, 参与下一层扩散
+                // 空格不是管网的一部分；访问过则说明已经属于先前搜索过的分量。
+                if (visited[startX, startZ] || board[startX, startZ].piece == null)
+                    continue;
+
+                Queue<Vector2Int> queue = new Queue<Vector2Int>();
+                List<BoardCell> component = new List<BoardCell>();
+
+                // 这两个标记描述“当前整片连通分量”的边界接触情况。
+                // entryX[x]/exitX[x] 允许以后把整条边界逐步收紧成部分区间或单点；
+                // levelDifficulty == 0 时 RandomTeacher 会把有效宽度内的列全部打开。
+                bool touchesTopEntry = false;
+                bool touchesBottomExit = false;
+
+                queue.Enqueue(new Vector2Int(startX, startZ));
+                visited[startX, startZ] = true;
+
+                while (queue.Count > 0)
+                {
+                    Vector2Int current = queue.Dequeue();
+                    BoardCell currentCell = board[current.x, current.y];
+                    component.Add(currentCell);
+
+                    // upperBorderZ 是上边界外侧的排他坐标，所以最上方有效行是 -1。
+                    if (current.y == upperBorderZ - 1 && entryX[current.x])
+                        touchesTopEntry = true;
+
+                    // lowerBorderZ 本身就是最下方有效行。
+                    if (current.y == lowerBorderZ && exitX[current.x])
+                        touchesBottomExit = true;
+
+                    // 扩展当前分量。这里只有“相邻格是否被占用”的既有连通规则，
+                    // 不记录距离或父节点，因为现在既不求最短路，也不需要回溯单一路线。
+                    for (int direction = 0; direction < 4; direction++)
+                    {
+                        int nextX = current.x + dx[direction];
+                        int nextZ = current.y + dz[direction];
+
+                        if (!InBounds(nextX, nextZ) || visited[nextX, nextZ])
+                            continue;
+                        if (board[nextX, nextZ].piece == null)
+                            continue;
+
+                        visited[nextX, nextZ] = true;
+                        queue.Enqueue(new Vector2Int(nextX, nextZ));
+                    }
+                }
+
+                // 只有同时触及上、下开放边界的分量才真正贯通。
+                // 不在发现第一个分量时 return：继续扫描才能收集棋盘上其他独立贯通区域。
+                if (touchesTopEntry && touchesBottomExit)
+                    path.AddRange(component);
             }
         }
-        if (!found) return false; // 全部扩散完都没到出口 -> 无通路
 
-        // 回溯: 从出口沿"父节点"指针一路走回入口, 得到完整的路径格子序列
-        int cx = ExitX, cz = ExitRow;
-        while (true)
-        {
-            path.Add(board[cx, cz]);                    // 把当前格加入路径
-            if (cx == EntryX && cz == EntryRow) break;  // 回到入口, 结束
-            int nx = prevX[cx, cz], nz = prevZ[cx, cz];
-            if (nx < 0) return false; // 安全保护: 正常流程下不会发生
-            cx = nx; cz = nz;
-        }
-        path.Reverse(); // 刚才是从出口往入口回溯的, 反转为 入口->出口 顺序
-        return true;
+        return path.Count > 0;
     }
 
     // ---- 提交结算 ---------------------------------------------------------------
-    // 需求: 入口 (左缘行2) -> 出口 (右缘行3) 存在通路, 且通路上 S 数值总和 >= 4。
+    // 需求: 至少有一个连通分量从有效上边界贯通到有效下边界，
+    //       且所有贯通分量并集里的 S 数值总和达到 TargetS。
     // 输出三个 out 参数: 是否通过、S 总和、给人看的提示文字。
     public void Submit(out bool pass, out int sSum, out string msg)
     {
         List<BoardCell> path;
-        if (!FindPath(out path)) // 先找通路
+        if (!FindPath(out path)) // path 现在是所有贯通区域的并集，而非一条最短路径
         {
             pass = false; sSum = 0;
-            msg = "FAIL — 无通路(入口 左缘行" + EntryRow + " → 出口 右缘行" + ExitRow + ")";
+            msg = "FAIL — 没有从棋盘上边界贯通到下边界的区域";
             return;
         }
         sSum = 0;

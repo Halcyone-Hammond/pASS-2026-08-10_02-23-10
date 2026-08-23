@@ -123,6 +123,10 @@ public class SaultUI : MonoBehaviour
         stateManager.Pending(false);
         //只动字母，根据字母寻址数据的话，字母动，数据的入口就动——数据跟着动。
         (current.slotLetters[a], current.slotLetters[b]) = (current.slotLetters[b],current.slotLetters[a]);
+        int aa = current.slotLetters[a];
+        int bb = current.slotLetters[b];
+        current.attrValues[aa] /= 2;
+        current.attrValues[bb] /= 2;                    //惩罚措施
         stateManager.PushTemp();
 
         current.RefreshVisuals();       //棋子变换
@@ -243,7 +247,7 @@ public class SaultUI : MonoBehaviour
     void RefreshEnergyText()
     {
         if (energyText != null) energyText.text = "剩余能量: " + energy;
-        if (hintText != null) hintText.text = "点击棋子拖动 | R 旋转 | Space 切换视角 | 能量: " + energy;
+        if (hintText != null) hintText.text = "点击棋子拖动 | Space 切换视角 | 能量: " + energy;
     }
 
     void RefreshTitleText()
