@@ -133,7 +133,7 @@ public class InputController : MonoBehaviour
         if(oriPlaced)
         {
             origX = p.bx; origZ = p.bz; origRot = p.rot; // 记录原来的格子坐标和旋转角度
-            stateManager.Pending();
+            stateManager.Pending(true);
             // 关键: 拖起来的第一时间就从棋盘数组里"摘下来",
             // 这样拖拽过程中它不占格子, 重叠校验也不用考虑它自己
             if (board != null) board.RemovePiece(p);
@@ -141,7 +141,7 @@ public class InputController : MonoBehaviour
         }
         else
         {
-            stateManager.Pending();
+            stateManager.Pending(true);
             //origRot = p.rot; // 托盘里没有格子坐标, 只记录旋转角度
         }
     }

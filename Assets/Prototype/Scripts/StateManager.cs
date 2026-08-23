@@ -116,7 +116,7 @@ public class StateManager : MonoBehaviour
         //进入下一个阶段（还没想好）
     }
 
-    //在做了一个变化之后，将Redo消掉，Undo栈新记录一个状态
+    //在做了一个有效变化之后，将Redo消掉，Undo栈新记录一个状态——不再直接调用，由PushTemp过滤。
     public void Record()
     {
         if (isRestoring) return;
@@ -156,29 +156,60 @@ public class StateManager : MonoBehaviour
         if (redoStack.Count == 0)    ui.redoBtn.interactable = false;
     }
 
-    public void Pending()
+    public void Pending(bool dragState)
     {
-        dragging = true;
+        dragging = dragState;
         tempState = Capture();
     }
 
+    bool SameState(GameState a, GameState b)
+    {
+        bool judging = true;
+        if (a.energy != b.energy) return false;
+        //if (a.pieces.Length != b.pieces.Length) return false;             //目前没有这个情况，这个在操作阶段外
+
+        for(int i=0;i<a.pieces.Length; i++)
+        {
+            PieceState aa = a.pieces[i];
+            PieceState bb = b.pieces[i];
+
+            if (aa.ifPlaced != bb.ifPlaced) return false;
+            if (aa.rot != bb.rot) return false;
+            if (aa.ifPlaced && (aa.bx != bb.bx || aa.bz != bb.bz)) return false;
+
+            //目前没看到会仅给其他数值带来不变的改动
+        }
+        return judging;
+    }
+
+    //将处理两个不同的回撤——拖动失败回撤和两状态一致回撤。
     public void PushTemp()
     {
         if (isRestoring) return;
+
         if (dragging)
         {
-            undoStack.Add(tempState);
-            if (undoStack.Count > MAX_HISTORY)
+            GameState checkState = Capture();
+            bool sameOrNot = SameState(tempState, checkState);
+            Debug.Log(sameOrNot);
+            if (sameOrNot)
             {
-                undoStack.RemoveAt(0);
+                CancelPending();
+                return;
             }
-            redoStack.Clear();
-            CancelPending();
-
-            ui.undoBtn.interactable = true;
-            ui.redoBtn.interactable = false;
         }
-        else Record();
+
+        undoStack.Add(tempState);
+        if (undoStack.Count > MAX_HISTORY)
+        {
+            undoStack.RemoveAt(0);
+        }
+        redoStack.Clear();
+        CancelPending();
+
+        ui.undoBtn.interactable = true;
+        ui.redoBtn.interactable = false;
+
     }
 
     public void CancelPending()

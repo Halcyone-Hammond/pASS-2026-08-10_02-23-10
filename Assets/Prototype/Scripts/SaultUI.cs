@@ -120,9 +120,10 @@ public class SaultUI : MonoBehaviour
         if (a < 0 || b < 0) return;
         if (a >= 4 || b >= 4) return;
 
-        stateManager.Record();
+        stateManager.Pending(false);
         //只动字母，根据字母寻址数据的话，字母动，数据的入口就动——数据跟着动。
         (current.slotLetters[a], current.slotLetters[b]) = (current.slotLetters[b],current.slotLetters[a]);
+        stateManager.PushTemp();
 
         current.RefreshVisuals();       //棋子变换
         RefreshAll();                   //UI变换
@@ -139,9 +140,10 @@ public class SaultUI : MonoBehaviour
         int newValue =  Mathf.Clamp(oldValue + delta, 0-MaxValue, MaxValue);   // 限制在 -10~10
 
         if (newValue == oldValue) return;                                                           //动不了了，已在边界 (-10 或 10), 不消耗能量
-        stateManager.Record();
+        stateManager.Pending(false);
         current.SetValue(theLetter, newValue);
         energy--; // 每次 +1/-1 消耗 1 能量
+        stateManager.PushTemp();
 
         current.RefreshVisuals(); // 棋子视觉同步 (顶面颜色 + 标签文字)
         RefreshAll();
