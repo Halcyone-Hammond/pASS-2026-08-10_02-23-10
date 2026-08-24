@@ -44,6 +44,7 @@ public class SaultUI : MonoBehaviour
     [SerializeField] Button plusBtn;   // [+] 按钮
     [SerializeField] public Button undoBtn;
     [SerializeField] public Button redoBtn;
+    [SerializeField] public Button submitBtn;
 
     int selectedSlot = -1;
 
@@ -68,6 +69,7 @@ public class SaultUI : MonoBehaviour
         minusBtn.onClick.AddListener(() => OnValue(-1));
         redoBtn.onClick.AddListener(() => RedoStart());
         undoBtn.onClick.AddListener(() => UndoStart());
+        submitBtn.onClick.AddListener(() => OnSubmit());
 
     }
 
@@ -171,8 +173,8 @@ public class SaultUI : MonoBehaviour
         if (board == null) board = FindAnyObjectByType<Board>();
         if (board == null) { resultText.text = "无棋盘"; return; }
         bool pass; int sum; string msg;
-        board.Submit(out pass, out sum, out msg); // out 参数带回三个结果
-        resultText.text = msg; // 如 "PASS — S=6 ≥ 4"
+        board.SubmitBFS(out int pts, out pass, out msg); // out 参数带回两个结果
+        resultText.text = "得分：" + msg; // 如 "得分：PASS — 6 ≥ 4"
         resultText.color = pass ? new Color(0.08f, 0.55f, 0.2f) : new Color(0.8f, 0.18f, 0.18f); // 绿/红
         ClearFocus();
     }

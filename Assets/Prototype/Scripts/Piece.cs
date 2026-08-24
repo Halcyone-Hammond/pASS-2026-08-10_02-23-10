@@ -24,7 +24,7 @@ public enum Shape { L, T, I, O }
 public class Piece : MonoBehaviour
 {
     // 字母编号常量: 用 int 而不是 char, 方便直接当数组下标用
-    public const int S = 0, A = 1, U = 2, L = 3;
+    public const int S = 0, A = 1, U = 2, L = 3, Om = 7;
     public static readonly string Letters = "SAUL"; // 编号 -> 字符 的查表 (0=S, 1=A, ...)
     [SerializeField] TMP_FontAsset FontAsset; //字体资源 (在编辑器里拖入)
 
@@ -52,8 +52,8 @@ public class Piece : MonoBehaviour
 
     public int[] slotLetters = new int[] { 0, 1, 2, 3 }; // 槽位 -> 字母 (S=0,A=1,U=2,L=3)，根据指针对应字母
     public int[] attrValues = new int[] { 1, 1, 1, 1 };  // 字母 -> 数值 (初始全 1)，根据字母对应
-    public int[] slotPerks = new int[] { 0, 0, 0, 0 };
-    public int[] attrValues2 = new int[] { 1, 1, 1, 1 };
+    public int[] slotPerks = new int[] { 0, 0, 0, 0 };      //该棋子拥有的特殊技能，后续需要注册新棋子和物品栏
+    public int[] attrValues2 = new int[] { 1, 1, 1, 1 };    //棋子技能配合数值达成自定义
 
     // 视觉材质: matDark 深色底座 / matLight 顶面(会被字母色替换) / matTints 四种字母色
     public Material matDark, matLight;

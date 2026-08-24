@@ -1,4 +1,5 @@
 using System.Collections.Generic;   // List<T>、Queue<T> 等泛型容器所在的命名空间
+using Unity.VisualScripting;
 using UnityEngine;                  // MonoBehaviour、Vector3、Material 等所有 Unity 核心类型
 
 // ============================================================
@@ -19,7 +20,7 @@ public class Board : MonoBehaviour
     public const int H = 6;              // 行数 (z 方向): 棋盘高 6 格
     int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
     bool visualYet = false;
-    int levelDifficulty = 0;
+
 
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
@@ -30,14 +31,13 @@ public class Board : MonoBehaviour
     bool[] exitZ = new bool[6];
 
     //NPC老师的事件要够丰富够多……
-    [SerializeField] public int EntryX = 2;       // 入口所在行: 第 2 行 (x = 2)  应该随机以检查玩法是否灵活
-    [SerializeField] public int EntryRow = 2;       // 入口所在列: 第 2 列 (z = 2)  应该随机以检查玩法是否灵活
-    [SerializeField] public int ExitX = 3;        // 出口所在行: 第 3 行 (x = 3)  应该随机以检查玩法是否灵活
-    [SerializeField] public int ExitRow = 3;        // 出口所在列: 第 3 列 (z = 3)  应该随机以检查玩法是否灵活
-    [SerializeField] public int TargetS = 4;        // 结算目标: 通路上的 S 总和 >= 4 才算 PASS  提供一个
-    [SerializeField] public int PerkT = 1;          //提供什么呢？提供基于当前数值的Perk，倍增分数
-    [SerializeField] public int TeacherReq1 = 10;    //老师要求（两个数值，三个阶段，三个后续阶段不同的优势）
-    [SerializeField] public int TeacherReq2 = 15;
+    [SerializeField] public int TargetS = 4;        // 结算目标
+    [SerializeField] public int PerkT = 1;          //提供什么呢？提供基于当前数值的Perk，倍增分数）——这个是非操作阶段内的事情，暂时不管
+    public int decideLetter;
+    int levelDifficulty = 0;
+    int xyDecider;              // BFS出入方向默认抉择器，为0是横向，为1是纵向
+    
+
 
     public GameObject[] ghostBlocks = new GameObject[6]; // 用于显示预览的格子 (鼠标拖动棋子时显示)
 
@@ -117,16 +117,113 @@ public class Board : MonoBehaviour
     public void RandomTeacher()
     {
         //目前的设计状态下，先确定EntryX,EntryZ,exitX,exitZ——以及对于数值的要求
+        xyDecider = Random.Range(0, 1);                                 //默认只判定一个方向的流动，但是在游戏过程是可以多加的。
         if (levelDifficulty == 0)
         {
-            for (int i = leftBorderX; i < rightBorderX; i++)
-            { entryX[i] = true; exitX[i] = true; }
-            for (int i = lowerBorderZ; i < upperBorderZ; i++)
-            { entryZ[i] = true; exitZ[i] = true; }
+            if(xyDecider == 0)
+            {
+                for (int i = leftBorderX; i < rightBorderX; i++)
+                { entryX[i] = true; exitX[i] = true; }
+            }
+
+            else
+            {
+                for (int i = lowerBorderZ; i < upperBorderZ; i++)
+                { entryZ[i] = true; exitZ[i] = true; }
+            }
+
         }
         else if (levelDifficulty == 1)
         {
-            int entranceX = Random.Range(leftBorderX, rightBorderX-1);
+            if(xyDecider == 0)
+            {
+                int entranceX = Random.Range(leftBorderX, rightBorderX - 1);
+                entryX[entranceX] = true; entryX[entranceX + 1] = true;
+                int wayoutX = Random.Range(leftBorderX, rightBorderX - 1);
+                exitX[wayoutX] = true; exitX[wayoutX + 1] = true;
+            }
+
+            else
+            {
+                int entranceZ = Random.Range(lowerBorderZ, upperBorderZ - 1); 
+                entryZ[entranceZ] = true; entryZ[entranceZ + 1] = true;
+                int wayoutZ = Random.Range(lowerBorderZ,upperBorderZ - 1);
+                exitZ[wayoutZ] = true; exitZ[wayoutZ + 1]=true;
+            }    
+        }
+
+        else
+        {
+            if(xyDecider ==0)
+            {
+                int entranceX = Random.Range(leftBorderX, rightBorderX);
+                entryX[entranceX] = true;
+                int wayoutX = Random.Range(leftBorderX, rightBorderX);
+                exitX[wayoutX] = true;
+            }
+
+            else
+            {
+                int entranceZ = Random.Range(lowerBorderZ, upperBorderZ);
+                entryZ[entranceZ] = true;
+                int wayoutZ = Random.Range(lowerBorderZ, upperBorderZ);
+                exitZ[wayoutZ] = true;
+            }
+        }
+
+        //老师讲清楚要求
+        decideLetter = Random.Range(0, 3);
+        TargetS = Random.Range(7, 30);
+
+        // 入口 / 出口 标记 (绿 = 入口, 红 = 出口)
+        if (matEntry != null)
+        {
+            for(int i = 0; i< entryX.Length; i++)
+            {
+                int index = i;
+                if (entryX[index])
+                    makeEntryExitMarker(CellToWorld(index, upperBorderZ), true);
+            }
+            for(int i = 0; i< entryZ.Length; i++)
+            {
+                int index = i;
+                if (entryZ[index])
+                    makeEntryExitMarker(CellToWorld(leftBorderX-1, index), true);
+            }
+        }
+        if (matExit != null)
+        {
+            for(int i = 0; i < exitX.Length; i++)
+            {
+                int index = i;
+                if (exitX[index])
+                    makeEntryExitMarker(CellToWorld(index, lowerBorderZ - 1), false);
+            }
+            for(int i =0; i<exitZ.Length; i++)
+            {
+                int index = i;
+                if (exitZ[index])
+                    makeEntryExitMarker(CellToWorld(rightBorderX, index), false);
+            }
+        }
+
+    }
+
+    void makeEntryExitMarker(Vector3 pos, bool entryExit)
+    {
+        GameObject go = CreatePrimitive(PrimitiveType.Cube);
+        go.transform.SetParent(transform, false);
+        go.transform.localScale = new Vector3(0.28f, 0.05f, 0.28f);
+        go.transform.localPosition = pos + new Vector3(0f, 0.065f, 0f);
+        if (entryExit)
+        {
+            go.name = "EntryMarker";
+            SetMat(go, matEntry);
+        }
+        else
+        {
+            go.name = "ExitMarker";
+            SetMat(go, matExit);
         }
     }
 
@@ -287,9 +384,10 @@ public class Board : MonoBehaviour
     //
     // 方法名和 out 参数名暂时保留为 FindPath/path，是为了不破坏 SaultUI 等现有调用，
     // 也方便以后恢复单点最短路径玩法；当前 path 实际表示“贯通区域中的全部格子”。
-    public bool FindPath(out List<BoardCell> path)
+    public bool FindPath(out List<BoardCell> pathThrough, out int pathBeginCount)
     {
-        path = new List<BoardCell>();
+        pathThrough = new List<BoardCell>();
+        List<BoardCell> pathBegin = new List<BoardCell>();
 
         // visited 是整次扫描共用的访问表。
         // 一个格子一旦归入某个连通分量，后续外层循环就不会再次搜索它，
@@ -313,8 +411,8 @@ public class Board : MonoBehaviour
                 // 这两个标记描述“当前整片连通分量”的边界接触情况。
                 // entryX[x]/exitX[x] 允许以后把整条边界逐步收紧成部分区间或单点；
                 // levelDifficulty == 0 时 RandomTeacher 会把有效宽度内的列全部打开。
-                bool touchesTopEntry = false;
-                bool touchesBottomExit = false;
+                bool touchesEntry = false;
+                bool touchesExit = false;
 
                 queue.Enqueue(new Vector2Int(startX, startZ));
                 visited[startX, startZ] = true;
@@ -323,17 +421,28 @@ public class Board : MonoBehaviour
                 {
                     Vector2Int current = queue.Dequeue();
                     BoardCell currentCell = board[current.x, current.y];
-                    component.Add(currentCell);
+                    component.Add(currentCell);                                 //加进当前集合的物件
 
-                    // upperBorderZ 是上边界外侧的排他坐标，所以最上方有效行是 -1。
-                    if (current.y == upperBorderZ - 1 && entryX[current.x])
-                        touchesTopEntry = true;
+                    // upperBorderZ 是上边界外侧的排他坐标，所以最上方有效行需要 -1。
+                    if(xyDecider == 0)
+                    {
+                        if (current.x == leftBorderX && entryZ[current.y])
+                            touchesEntry = true;
 
-                    // lowerBorderZ 本身就是最下方有效行。
-                    if (current.y == lowerBorderZ && exitX[current.x])
-                        touchesBottomExit = true;
+                        if(current.x == rightBorderX - 1 && entryZ[current.y])
+                            touchesExit = true;
+                    }
 
-                    // 扩展当前分量。这里只有“相邻格是否被占用”的既有连通规则，
+                    if(xyDecider == 1)
+                    {
+                        if (current.y == upperBorderZ - 1 && entryX[current.x])
+                            touchesEntry = true;
+
+                        // lowerBorderZ 本身就是最下方有效行。
+                        if (current.y == lowerBorderZ && exitX[current.x])
+                            touchesExit = true;
+                    }
+                    // 扩展当前分量。这里只有“相邻格是否符合条件”的既有连通规则，
                     // 不记录距离或父节点，因为现在既不求最短路，也不需要回溯单一路线。
                     for (int direction = 0; direction < 4; direction++)
                     {
@@ -341,10 +450,13 @@ public class Board : MonoBehaviour
                         int nextZ = current.y + dz[direction];
 
                         if (!InBounds(nextX, nextZ) || visited[nextX, nextZ])
+                            continue;                                           //出界或者已经看过了
+                        BoardCell bc = board[nextX, nextZ];
+                        if (bc.piece == null)
+                            continue;                                           //如果就没有棋子
+                        if (BFSvalid(bc) == false)
                             continue;
-                        if (board[nextX, nextZ].piece == null)
-                            continue;
-
+                        
                         visited[nextX, nextZ] = true;
                         queue.Enqueue(new Vector2Int(nextX, nextZ));
                     }
@@ -352,40 +464,67 @@ public class Board : MonoBehaviour
 
                 // 只有同时触及上、下开放边界的分量才真正贯通。
                 // 不在发现第一个分量时 return：继续扫描才能收集棋盘上其他独立贯通区域。
-                if (touchesTopEntry && touchesBottomExit)
-                    path.AddRange(component);
+                if (touchesEntry && touchesExit)
+                    pathThrough.AddRange(component);
+                else if (!touchesExit)
+                    pathBegin.AddRange(component);
             }
         }
 
-        return path.Count > 0;
+        pathBeginCount = pathBegin.Count;
+
+        return pathThrough.Count > 0;
+    }
+
+    bool BFSvalid(BoardCell boardcell)
+    {
+        //初始判定——仅与统一判定而不是当下格子判定，确保准确。
+        if (boardcell.piece.slotLetters[boardcell.slot]==decideLetter)
+            return true;
+        //特殊判定——SlotPerk和AttrValue2的事情，到时候再看。
+
+        return false;
     }
 
     // ---- 提交结算 ---------------------------------------------------------------
     // 需求: 至少有一个连通分量从有效上边界贯通到有效下边界，
     //       且所有贯通分量并集里的 S 数值总和达到 TargetS。
     // 输出三个 out 参数: 是否通过、S 总和、给人看的提示文字。
-    public void Submit(out bool pass, out int sSum, out string msg)
+    public void SubmitBFS(out int connectingPts, out bool pass, out string msg)
     {
-        List<BoardCell> path;
-        if (!FindPath(out path)) // path 现在是所有贯通区域的并集，而非一条最短路径
+        List<BoardCell> pathThrough;
+        pass = false;
+        //pathThrough记录从开始到结束连通的路线
+        //pathBegin会记录从开始到结束联通的
+        if (!FindPath(out pathThrough, out int pathBeginCount)) // path 现在是所有贯通区域的并集，而非一条最短路径
         {
-            pass = false; sSum = 0;
-            msg = "FAIL — 没有从棋盘上边界贯通到下边界的区域";
+            connectingPts = pathBeginCount;
+            msg = "未连通，采用通量面积 " + connectingPts;
+            pass = connectingPts >= TargetS;
+            msg = pass
+            ? "PASS — " + connectingPts + " ≥ " + TargetS        //之后要改成血条UI
+            : "FAIL — " + connectingPts + " < " + TargetS;
             return;
         }
-        sSum = 0;
-        for (int i = 0; i < path.Count; i++)
+        connectingPts = 0;
+        //
+        for (int i = 0; i < pathThrough.Count; i++)
         {
-            BoardCell bc = path[i];
+            BoardCell bc = pathThrough[i];
             // 只累加"S"槽位的数值: 每个棋子只有一个 S, 且 S 属于某个具体槽位。
-            // LetterAt(slot) 问"这个槽位当前是什么字母"; ValueOf(S) 问"S 现在的数值是多少"
-            if (bc.piece != null && bc.piece.LetterAt(bc.slot) == Piece.S)
-                sSum += bc.piece.ValueOf(Piece.S);
+            // 询问字母应该在BFS就完成
+            if (bc.piece != null)
+            {
+                int absValue = Mathf.Abs(bc.piece.ValueOf(Piece.S));
+            }
+                connectingPts += bc.piece.ValueOf(Piece.S);
         }
-        pass = sSum >= TargetS; // 达标?
+        pass = connectingPts >= TargetS;
         msg = pass
-            ? "PASS — S=" + sSum + " ≥ " + TargetS
-            : "FAIL — S=" + sSum + " < " + TargetS;
+        ? "PASS —" + connectingPts + " ≥ " + TargetS            //之后要改成血条UI，和未连通共享一套判定
+        : "FAIL —" + connectingPts + " < " + TargetS;
+        return;
+        
     }
 
     // ================= 视觉搭建 (BuildBoard) =================
@@ -474,22 +613,6 @@ public class Board : MonoBehaviour
         bW.name = "BorderW"; bW.transform.SetParent(transform, false);
         bW.transform.localPosition = new Vector3(-(ww * 0.5f + 0.04f), 0.03f, h0); // 西边
         bW.transform.localScale = new Vector3(0.08f, 0.08f, hh + 0.16f); SetMat(bW, matEdge);
-
-        // 入口 / 出口 标记 (绿 = 入口 左缘行2, 红 = 出口 右缘行3)
-        if (matEntry != null)
-        {
-            GameObject en = CreatePrimitive(PrimitiveType.Cube);
-            en.name = "EntryMarker"; en.transform.SetParent(transform, false);
-            en.transform.localPosition = CellToWorld(EntryX, EntryRow) + new Vector3(0f, 0.065f, 0f); // 贴在入口格地砖上
-            en.transform.localScale = new Vector3(0.28f, 0.05f, 0.28f); SetMat(en, matEntry);
-        }
-        if (matExit != null)
-        {
-            GameObject ex = CreatePrimitive(PrimitiveType.Cube);
-            ex.name = "ExitMarker"; ex.transform.SetParent(transform, false);
-            ex.transform.localPosition = CellToWorld(ExitX, ExitRow) + new Vector3(0f, 0.065f, 0f);
-            ex.transform.localScale = new Vector3(0.28f, 0.05f, 0.28f); SetMat(ex, matExit);
-        }
 
         // 唯一的射线目标: 覆盖棋盘 + 下方拖放区 (tray)
         // 为什么这样设计: 输入流程要求"鼠标 -> 射线 -> 世界点 -> 棋盘坐标",
