@@ -117,7 +117,7 @@ public class Board : MonoBehaviour
     public void RandomTeacher()
     {
         //目前的设计状态下，先确定EntryX,EntryZ,exitX,exitZ——以及对于数值的要求
-        xyDecider = Random.Range(0, 1);                                 //默认只判定一个方向的流动，但是在游戏过程是可以多加的。
+        xyDecider = Random.Range(0, 2);                                 //默认只判定一个方向的流动，但是在游戏过程是可以多加的。
         if (levelDifficulty == 0)
         {
             if(xyDecider == 0)
@@ -172,8 +172,8 @@ public class Board : MonoBehaviour
         }
 
         //老师讲清楚要求
-        decideLetter = Random.Range(0, 3);
-        TargetS = Random.Range(7, 30);
+        decideLetter = Random.Range(0, 4);
+        TargetS = Random.Range(7, 27);
 
         // 入口 / 出口 标记 (绿 = 入口, 红 = 出口)
         if (matEntry != null)
@@ -405,6 +405,9 @@ public class Board : MonoBehaviour
                 if (visited[startX, startZ] || board[startX, startZ].piece == null)
                     continue;
 
+                BoardCell startCell = board[startX, startZ];
+                if (startCell.piece.slotLetters[startCell.slot] != decideLetter) continue;
+
                 Queue<Vector2Int> queue = new Queue<Vector2Int>();
                 List<BoardCell> component = new List<BoardCell>();
 
@@ -424,16 +427,16 @@ public class Board : MonoBehaviour
                     component.Add(currentCell);                                 //加进当前集合的物件
 
                     // upperBorderZ 是上边界外侧的排他坐标，所以最上方有效行需要 -1。
-                    if(xyDecider == 0)
+                    if(xyDecider == 1)
                     {
                         if (current.x == leftBorderX && entryZ[current.y])
                             touchesEntry = true;
 
-                        if(current.x == rightBorderX - 1 && entryZ[current.y])
+                        if(current.x == rightBorderX - 1 && exitZ[current.y])
                             touchesExit = true;
                     }
 
-                    if(xyDecider == 1)
+                    else if(xyDecider == 0)
                     {
                         if (current.y == upperBorderZ - 1 && entryX[current.x])
                             touchesEntry = true;
@@ -511,13 +514,12 @@ public class Board : MonoBehaviour
         for (int i = 0; i < pathThrough.Count; i++)
         {
             BoardCell bc = pathThrough[i];
-            // 只累加"S"槽位的数值: 每个棋子只有一个 S, 且 S 属于某个具体槽位。
             // 询问字母应该在BFS就完成
             if (bc.piece != null)
             {
-                int absValue = Mathf.Abs(bc.piece.ValueOf(Piece.S));
+                int absValue = Mathf.Abs(bc.piece.ValueOf(bc.piece.slotLetters[bc.slot]));
+                connectingPts += absValue;
             }
-                connectingPts += bc.piece.ValueOf(Piece.S);
         }
         pass = connectingPts >= TargetS;
         msg = pass

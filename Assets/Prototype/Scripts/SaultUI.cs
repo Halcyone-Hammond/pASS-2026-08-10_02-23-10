@@ -46,6 +46,8 @@ public class SaultUI : MonoBehaviour
     [SerializeField] public Button redoBtn;
     [SerializeField] public Button submitBtn;
 
+    static readonly string Letters = "SAUL";
+
     int selectedSlot = -1;
 
     // Unity 生命周期: Awake 最先执行, 这里把整套 UI 搭出来
@@ -62,7 +64,7 @@ public class SaultUI : MonoBehaviour
         if (stateManager == null) stateManager = FindAnyObjectByType<StateManager>();
         Hide();
         RefreshEnergyText();
-        RefreshTargetText();
+        RefreshRequirementText();
 
         //按钮事件监听
         plusBtn.onClick.AddListener(() => OnValue(1));
@@ -203,6 +205,7 @@ public class SaultUI : MonoBehaviour
         RefreshValueTexts();
         RefreshEnergyText();
         RefreshTitleText();
+        RefreshRequirementText();
     }
 
     // 将矩阵Slot刷新，显示当前棋子
@@ -268,9 +271,15 @@ public class SaultUI : MonoBehaviour
     }
 
     //目标为在能量文字下显示目标文字。显示“目标: 通路 左缘行X → 右缘行Y, S ≥ Z”。”尚未完成。
-    void RefreshTargetText()
+    void RefreshRequirementText()
     {
-
+        int theLetter = board.decideLetter;
+        string ll = "";
+        if (theLetter == 0) ll = "S";
+        else if (theLetter == 1) ll = "A";
+        else if (theLetter == 2) ll = "U";
+        else if (theLetter == 3) ll = "L";
+        reqText.text = "红点和绿点之间需要连续的" + ll +"到" + board.TargetS;
     }
 
     // 显示面板并指向某棋子 (由 InputController 选中棋子时调用)
