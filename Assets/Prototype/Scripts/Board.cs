@@ -466,7 +466,7 @@ public class Board : MonoBehaviour
                 // 不在发现第一个分量时 return：继续扫描才能收集棋盘上其他独立贯通区域。
                 if (touchesEntry && touchesExit)
                     pathThrough.AddRange(component);
-                else if (!touchesExit)
+                else if (touchesEntry)
                     pathBegin.AddRange(component);
             }
         }
