@@ -110,7 +110,7 @@ public class InputController : MonoBehaviour
         {
             Piece p = board.allPieces[i];
             if (p == null || p.placed) continue; // 只找未放置的
-            Vector2Int[] offs = p.GetOffsets(0); // 槽位偏移 (格子单位)
+            Vector2Int[] offs = p.GetOffsets(0, out Vector2Int shifty); // 槽位偏移 (格子单位)
             for (int j = 0; j < offs.Length; j++)
             {
                 // 槽位的世界坐标 = 棋子位置 + 偏移 (棋盘坐标轴与 XZ 平面一致, 可直接相加)
@@ -192,12 +192,12 @@ public class InputController : MonoBehaviour
             // 棋子当前位置 -> 最近格子 -> 尝试放置 (内部会做越界/重叠校验)
             if (boundIn)
             {
-                ok = board.TryPlace(selected, x, z, selected.rot);
+                ok = board.TryPlace(selected, x, z, selected.rot, out Vector2Int whatever);
                 // 放不下且原来就在棋盘上 -> 放回原位
                 if (!ok && oriPlaced)
                 {
                     stateManager.CancelPending();
-                    ok = board.TryPlace(selected, origX, origZ, origRot);
+                    ok = board.TryPlace(selected, origX, origZ, origRot, out Vector2Int whateveris);
                 }
                 else if (!ok && !oriPlaced)
                 {
@@ -207,8 +207,8 @@ public class InputController : MonoBehaviour
                 }
                 else
                 {
-                    stateManager.PushTemp();
                     if (ui != null) ui.ShowFor(selected); // 弹出 SAUL 配置面板
+                    stateManager.PushTemp();
                 }
             }
             else
@@ -228,24 +228,6 @@ public class InputController : MonoBehaviour
         }
     }
 
-    // R 键: 选中棋子旋转 90°
-    void RotateSelected()
-    {
-        if (selected == null) return;
-        int nr = (selected.rot + 1) % 4; // 0->1->2->3->0 循环
-        if (selected.placed)
-        {
-            // 已在棋盘上: 原地换旋转角度; 新角度放不下 (越界/被挡) 则保持原角度
-            // (TryPlace 失败时不改任何状态, 正好符合"保持原样")
-            if (board != null) board.TryPlace(selected, selected.bx, selected.bz, nr);
-        }
-        else
-        {
-            // 拖拽中/托盘里: 只转视觉, 不做格子校验 (松手时才校验)
-            selected.rot = nr;
-            selected.SetVisualRotation(nr);
-        }
-    }
 
     // 取消选中: 取消高亮、清状态、收起面板
     public void Deselect()

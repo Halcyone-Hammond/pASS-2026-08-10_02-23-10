@@ -1,7 +1,9 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems; // EventSystem: 清按钮焦点用 (防止 Space 键重复触发按钮)
 using UnityEngine.UI;          // 所有 UI 组件: Text / Button / Image / LayoutGroup ...
+using static UnityEditor.ShaderData;
 
 // ============================================================
 // SaultUI —— S.A.U.L. 配置面板 (右侧 UI)
@@ -45,8 +47,10 @@ public class SaultUI : MonoBehaviour
     [SerializeField] public Button undoBtn;
     [SerializeField] public Button redoBtn;
     [SerializeField] public Button submitBtn;
+    [SerializeField] public Button RotateBtn;
+    [SerializeField] public TMP_Text RotateText;
 
-    static readonly string Letters = "SAUL";
+    //static readonly string Letters = "SAUL";
 
     int selectedSlot = -1;
 
@@ -72,6 +76,7 @@ public class SaultUI : MonoBehaviour
         redoBtn.onClick.AddListener(() => RedoStart());
         undoBtn.onClick.AddListener(() => UndoStart());
         submitBtn.onClick.AddListener(() => OnSubmit());
+        RotateBtn.onClick.AddListener(() => OnRotate());
 
     }
 
@@ -132,9 +137,6 @@ public class SaultUI : MonoBehaviour
         current.attrValues[aa] /= 2;
         current.attrValues[bb] /= 2;                    //惩罚措施
         stateManager.PushTemp();
-
-        current.RefreshVisuals();       //棋子变换
-        RefreshAll();                   //UI变换
     }    
 
 
@@ -152,9 +154,6 @@ public class SaultUI : MonoBehaviour
         current.SetValue(theLetter, newValue);
         energy--; // 每次 +1/-1 消耗 1 能量
         stateManager.PushTemp();
-
-        current.RefreshVisuals(); // 棋子视觉同步 (顶面颜色 + 标签文字)
-        RefreshAll();
         ClearFocus();
     }
 
@@ -174,12 +173,70 @@ public class SaultUI : MonoBehaviour
     {
         if (board == null) board = FindAnyObjectByType<Board>();
         if (board == null) { resultText.text = "无棋盘"; return; }
-        bool pass; int sum; string msg;
-        board.SubmitBFS(out int pts, out pass, out msg); // out 参数带回两个结果
+        board.BFS(out int pts, out bool pass, out string msg); // out 参数带回两个结果
         resultText.text = "得分：" + msg; // 如 "得分：PASS — 6 ≥ 4"
         resultText.color = pass ? new Color(0.08f, 0.55f, 0.2f) : new Color(0.8f, 0.18f, 0.18f); // 绿/红
+
+        stateManager.Submit();
         ClearFocus();
     }
+
+    public void RefreshCalculation()
+    {
+        board.BFS(out int pts, out bool pass, out string msg); // out 参数带回两个结果
+        resultText.text = "得分：" + msg; // 如 "得分：PASS — 6 ≥ 4"
+        resultText.color = pass ? new Color(0.08f, 0.55f, 0.2f) : new Color(0.8f, 0.18f, 0.18f); // 绿/红
+    }
+
+    // R 键: 选中棋子旋转 90°
+    void OnRotate()
+    {
+        if (current == null) return;
+        stateManager.Pending(true);
+        int nr = (current.rot + 1) % 4; // 0->1->2->3->0 循环
+        if (current.placed)
+        {
+            // 已在棋盘上: 原地换旋转角度; 新角度放不下 (越界/被挡) 则保持原角度
+            // (TryPlace 失败时不改任何状态, 正好符合"保持原样")
+            if (board != null)
+            {
+                int origX = current.bx; int origZ = current.bz; int origRot = current.rot;
+                board.RemovePiece(current);
+                bool rotated = board.TryPlace(current, current.bx, current.bz, nr, out Vector2Int shifts);
+                if (!rotated)
+                {
+                    board.TryPlace(current, origX, origZ, origRot, out Vector2Int shiftsWrong);
+                    ShowTempText(RotateText, "nada");
+                    stateManager.CancelPending();
+                }
+                else
+                {
+                        current.transform.position -= new Vector3(shifts.x, 0, shifts.y);
+                }
+            }
+        }
+        else
+        {
+            // 托盘中的棋子没有棋盘占位，可直接更新数据和视觉旋转。
+            current.rot = nr;
+            current.SetVisualRotation(nr);
+        }
+        stateManager.PushTemp();
+    }
+
+    private void ShowTempText(TMP_Text oldtext,string newtext)
+    {
+        StartCoroutine(TempText(oldtext,newtext));
+    }
+
+    private IEnumerator TempText(TMP_Text ot, string nt)
+    {
+        string oldText = ot.text;
+        ot.text = nt;
+        yield return new WaitForSecondsRealtime(1f);
+        ot.text = oldText;
+    }
+
 
     // 视角切换按钮: 调 CameraSwitcher 的 Toggle (和按 Space 一样)
     void ToggleCamera()
@@ -205,6 +262,7 @@ public class SaultUI : MonoBehaviour
         RefreshValueTexts();
         RefreshEnergyText();
         RefreshTitleText();
+        //RefreshCalculation();                                 保存State自然会有这些
         RefreshRequirementText();
     }
 
@@ -212,7 +270,7 @@ public class SaultUI : MonoBehaviour
     void RefreshSlotButtons()
     {
         if (current == null) return;
-        Vector2Int[] offs = current.GetOffsets(current.rot);
+        Vector2Int[] offs = current.GetOffsets(current.rot, out Vector2Int shifty);
         for(int i = 0; i < offs.Length; i++)
         {
             Vector2Int pos = offs[i];

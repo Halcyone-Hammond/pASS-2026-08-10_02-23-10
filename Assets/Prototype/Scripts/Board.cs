@@ -1,5 +1,4 @@
 using System.Collections.Generic;   // List<T>、Queue<T> 等泛型容器所在的命名空间
-using Unity.VisualScripting;
 using UnityEngine;                  // MonoBehaviour、Vector3、Material 等所有 Unity 核心类型
 
 // ============================================================
@@ -21,7 +20,6 @@ public class Board : MonoBehaviour
     int boardStage = 1;          // 关卡阶段 (0~2), 控制棋盘大小, 初始为 2，再慢慢解锁到 1，0
     bool visualYet = false;
 
-
     int leftBorderX, rightBorderX;         // 入口所在列: 左边缘 (x = 0)// 出口所在列: 右边缘 (x = 6)
     int upperBorderZ, lowerBorderZ;        // 上边缘 (z = 5)
     float wCenter, hCenter;                       // 用于求出棋盘中心，实现对称发展
@@ -36,7 +34,8 @@ public class Board : MonoBehaviour
     public int decideLetter;
     int levelDifficulty = 0;
     int xyDecider;              // BFS出入方向默认抉择器，为0是横向，为1是纵向
-    
+    // 标记数量会随关卡难度变化，用 List 才能安全地动态追加。
+    readonly List<GameObject> teacherMarkers = new List<GameObject>();
 
 
     public GameObject[] ghostBlocks = new GameObject[6]; // 用于显示预览的格子 (鼠标拖动棋子时显示)
@@ -116,6 +115,7 @@ public class Board : MonoBehaviour
     // ---- 随机化入口/出口/目标 ---------------------------------------------------
     public void RandomTeacher()
     {
+        ClearTeacherMarkers();
         //目前的设计状态下，先确定EntryX,EntryZ,exitX,exitZ——以及对于数值的要求
         xyDecider = Random.Range(0, 2);                                 //默认只判定一个方向的流动，但是在游戏过程是可以多加的。
         if (levelDifficulty == 0)
@@ -182,13 +182,13 @@ public class Board : MonoBehaviour
             {
                 int index = i;
                 if (entryX[index])
-                    makeEntryExitMarker(CellToWorld(index, upperBorderZ), true);
+                    teacherMarkers.Add(makeEntryExitMarker(CellToWorld(index, upperBorderZ), true));
             }
             for(int i = 0; i< entryZ.Length; i++)
             {
                 int index = i;
                 if (entryZ[index])
-                    makeEntryExitMarker(CellToWorld(leftBorderX-1, index), true);
+                    teacherMarkers.Add(makeEntryExitMarker(CellToWorld(leftBorderX-1, index), true));
             }
         }
         if (matExit != null)
@@ -197,19 +197,34 @@ public class Board : MonoBehaviour
             {
                 int index = i;
                 if (exitX[index])
-                    makeEntryExitMarker(CellToWorld(index, lowerBorderZ - 1), false);
+                    teacherMarkers.Add(makeEntryExitMarker(CellToWorld(index, lowerBorderZ - 1), false));
             }
             for(int i =0; i<exitZ.Length; i++)
             {
                 int index = i;
                 if (exitZ[index])
-                    makeEntryExitMarker(CellToWorld(rightBorderX, index), false);
+                    teacherMarkers.Add(makeEntryExitMarker(CellToWorld(rightBorderX, index), false));
             }
         }
 
     }
 
-    void makeEntryExitMarker(Vector3 pos, bool entryExit)
+    void ClearTeacherMarkers()
+    {
+        foreach (GameObject marker in teacherMarkers)
+        {
+            if (marker != null) Destroy(marker);
+        }
+        teacherMarkers.Clear();
+
+        // RandomTeacher 可能被重复调用，旧的入口/出口规则也必须一起清掉。
+        System.Array.Clear(entryX, 0, entryX.Length);
+        System.Array.Clear(exitX, 0, exitX.Length);
+        System.Array.Clear(entryZ, 0, entryZ.Length);
+        System.Array.Clear(exitZ, 0, exitZ.Length);
+    }
+
+    GameObject makeEntryExitMarker(Vector3 pos, bool entryExit)
     {
         GameObject go = CreatePrimitive(PrimitiveType.Cube);
         go.transform.SetParent(transform, false);
@@ -225,6 +240,7 @@ public class Board : MonoBehaviour
             go.name = "ExitMarker";
             SetMat(go, matExit);
         }
+        return go;
     }
 
     // 把棋子登记进 allPieces 清单 (用 Contains 防重复登记)
@@ -258,9 +274,10 @@ public class Board : MonoBehaviour
 
     // 计算: 某棋子放在 (px,pz) 且旋转为 rot 时, 它的 4 个槽位分别占据哪 4 个格子。
     // 先问棋子要它的 4 个"槽位偏移" (见 Piece.GetOffsets), 再整体加上锚点坐标。
-    public Vector2Int[] GetCells(Piece p, int px, int pz, int rot)
+    public Vector2Int[] GetCells(Piece p, int px, int pz, int rot, out Vector2Int shifts)
     {
-        Vector2Int[] offs = p.GetOffsets(rot);        // 4 个槽位相对锚点的偏移 (格子单位)
+        Vector2Int[] offs = p.GetOffsets(rot, out Vector2Int shifty);        // 4 个槽位相对锚点的偏移 (格子单位)
+        shifts = shifty;
         Vector2Int[] res = new Vector2Int[offs.Length]; // 存放结果的数组
         for (int i = 0; i < offs.Length; i++)
             res[i] = new Vector2Int(px + offs[i].x, pz + offs[i].y);
@@ -275,7 +292,7 @@ public class Board : MonoBehaviour
     {
         GhostlyRecover();
  
-        Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
+        Vector2Int[] cells = GetCells(p, px, pz, rot, out Vector2Int whatever); // 先算出要占哪 4 格
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
@@ -330,14 +347,15 @@ public class Board : MonoBehaviour
     // 尝试把棋子 p 放到 (px,pz), 旋转 rot。
     // 规则: 全部 4 格必须在界内 (越界拒绝) 且全为空 (重叠拒绝)。
     // 失败时不做任何修改 (调用方可以安全回退); 成功时更新数组 + 棋子的坐标/旋转 + 场景位置。
-    public bool TryPlace(Piece p, int px, int pz, int rot)
+    public bool TryPlace(Piece p, int px, int pz, int rot, out Vector2Int shifty)
     {
-        Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
+        Vector2Int[] cells = GetCells(p, px, pz, rot, out Vector2Int shift); // 先算出要占哪 4 格
+        shifty = shift;
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
             if (!InBounds(cx, cz)) return false;         // 任一格越界 -> 拒绝
-            if (board[cx, cz].piece != null) return false; // 任一格被占 -> 拒绝
+            if (board[cx, cz].piece != null) return false;
         }
         // 校验全部通过, 开始落子:
 
@@ -357,7 +375,7 @@ public class Board : MonoBehaviour
     public void RemovePiece(Piece p)
     {
         if (!p.placed) return; // 本来就没在棋盘上, 直接返回
-        Vector2Int[] cells = GetCells(p, p.bx, p.bz, p.rot); // 用棋子记录的旧位置算出格子
+        Vector2Int[] cells = GetCells(p, p.bx, p.bz, p.rot, out Vector2Int whatever); // 用棋子记录的旧位置算出格子
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
@@ -371,8 +389,7 @@ public class Board : MonoBehaviour
     }
 
     // ---- 贯通区域判定 (连通分量 BFS) ---------------------------------------------
-    // 规则仍沿用原型现有定义: 上下左右相邻、并且都被棋子占用的格子互相连通。
-    // 字母不会在这里阻断水流; S/A/U/L 的区别仍只由 Submit 在结算数值时处理。
+    // 规则已经改为依照老师要求的属性相连方可。
     //
     // 这里求的已经不是“指定入口到指定出口的一条最短路径”，而是：
     //   1. 用 BFS 找出棋盘上的每一个独立连通分量；
@@ -489,11 +506,12 @@ public class Board : MonoBehaviour
         return false;
     }
 
-    // ---- 提交结算 ---------------------------------------------------------------
+    // ---- BFS预算预览 ---------------------------------------------------------------
     // 需求: 至少有一个连通分量从有效上边界贯通到有效下边界，
     //       且所有贯通分量并集里的 S 数值总和达到 TargetS。
     // 输出三个 out 参数: 是否通过、S 总和、给人看的提示文字。
-    public void SubmitBFS(out int connectingPts, out bool pass, out string msg)
+    // 可以由预览和提交两者调取，实时更改UI最好，结算交给SaultUI。
+    public void BFS(out int connectingPts, out bool pass, out string msg)
     {
         List<BoardCell> pathThrough;
         pass = false;
@@ -502,11 +520,10 @@ public class Board : MonoBehaviour
         if (!FindPath(out pathThrough, out int pathBeginCount)) // path 现在是所有贯通区域的并集，而非一条最短路径
         {
             connectingPts = pathBeginCount;
-            msg = "未连通，采用通量面积 " + connectingPts;
             pass = connectingPts >= TargetS;
             msg = pass
-            ? "PASS — " + connectingPts + " ≥ " + TargetS        //之后要改成血条UI
-            : "FAIL — " + connectingPts + " < " + TargetS;
+            ? "未连通，采用通量面积PASS — " + connectingPts + " ≥ " + TargetS        //之后要改成血条UI
+            : "未连通，采用通量面积FAIL — " + connectingPts + " < " + TargetS;
             return;
         }
         connectingPts = 0;
@@ -514,7 +531,6 @@ public class Board : MonoBehaviour
         for (int i = 0; i < pathThrough.Count; i++)
         {
             BoardCell bc = pathThrough[i];
-            // 询问字母应该在BFS就完成
             if (bc.piece != null)
             {
                 int absValue = Mathf.Abs(bc.piece.ValueOf(bc.piece.slotLetters[bc.slot]));

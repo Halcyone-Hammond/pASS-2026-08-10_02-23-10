@@ -72,7 +72,7 @@ public class Piece : MonoBehaviour
     // 做法: 把基础布局的每个点绕原点顺时针转 90° 共 r 次,
     //       然后整体平移, 让最小坐标归零 (保证坐标非负、锚点仍落在 (0,0))。
     // 旋转公式 (x, z) -> (z, -x) 是 90° 顺时针旋转的标准数学。
-    public Vector2Int[] GetOffsets(int r)
+    public Vector2Int[] GetOffsets(int r, out Vector2Int shift)
     {
         Vector2Int[] src = BASE[(int)shape];   // 取出这种形状的基础布局
         Vector2Int[] pts = new Vector2Int[src.Length];
@@ -89,8 +89,10 @@ public class Piece : MonoBehaviour
             minx = Mathf.Min(minx, pts[i].x);
             miny = Mathf.Min(miny, pts[i].y);
         }
+
+        shift = new Vector2Int(minx, miny);
         // 每个点减去最小值: 形状完全不变, 但坐标变成非负, 锚点落在 (0,0)
-        for (int i = 0; i < pts.Length; i++) pts[i] -= new Vector2Int(minx, miny);
+        for (int i = 0; i < pts.Length; i++) pts[i] -= shift;
         return pts;
     }
 
@@ -136,7 +138,7 @@ public class Piece : MonoBehaviour
 
     void EnsureTmpLabels()
     {
-        Vector2Int[] offs = GetOffsets(0); // 用基础布局 (rot 0) 的偏移定位子物体 
+        Vector2Int[] offs = GetOffsets(0, out Vector2Int shifty); // 用基础布局 (rot 0) 的偏移定位子物体 
         for (int i = 0; i < 4; i++)
         {
             Vector3 labelPos = new Vector3(offs[i].x, 0f, offs[i].y);
@@ -238,7 +240,7 @@ public class Piece : MonoBehaviour
     // 全部做成当前物体的子物体 (SetParent), 所以会跟着棋子一起移动/旋转。
     void BuildVisual()
     {
-        Vector2Int[] offs = GetOffsets(0); // 用基础布局 (rot 0) 的偏移定位子物体
+        Vector2Int[] offs = GetOffsets(0, out Vector2Int shifty); // 用基础布局 (rot 0) 的偏移定位子物体
         for (int i = 0; i < 4; i++)
         {
             Vector3 lp = new Vector3(offs[i].x, 0f, offs[i].y); // 槽位局部坐标 (y 稍后加)

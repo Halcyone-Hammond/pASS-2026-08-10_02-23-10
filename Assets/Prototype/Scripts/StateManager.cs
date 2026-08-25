@@ -12,10 +12,10 @@ public class PieceState
 {
     public bool ifPlaced;
     public int bx, bz, rot;
-    public int[] theSlotLetters;                   //Éî¿½±´
-    public int[] theAttrValues;                    //Éî¿½±´
-    public int[] theAttrValues2;                   //µÚ¶şÖØÊıÖµ£¬Éî¿½±´
-    public int[] theSlotPerks;                     //ÓĞĞ©ÌØÊâÆå×Ó£¬Éî¿½±´
+    public int[] theSlotLetters;                   //æ·±æ‹·è´
+    public int[] theAttrValues;                    //æ·±æ‹·è´
+    public int[] theAttrValues2;                   //ç¬¬äºŒé‡æ•°å€¼ï¼Œæ·±æ‹·è´
+    public int[] theSlotPerks;                     //æœ‰äº›ç‰¹æ®Šæ£‹å­ï¼Œæ·±æ‹·è´
 }
 
 
@@ -37,13 +37,13 @@ public class StateManager : MonoBehaviour
         ui.redoBtn.interactable = false;
     }
 
-    //State×´Ì¬¼ÇÂ¼
+    //StateçŠ¶æ€è®°å½•
     public GameState Capture()
     {
         GameState currentState = new GameState();
         currentState.pieces = new PieceState[theBoard.allPieces.Count];
         currentState.energy = ui.energy;
-        for (int i = 0; i < theBoard.allPieces.Count; i++)                                                      //ÕâÀïCountÊÇ²»ÊÇÒ²Òª¼Ç×´Ì¬ÄØ£¿¾ÖÄÚÈç¹û¸´ÖÆÕ³ÌùÆå×ÓÄØ
+        for (int i = 0; i < theBoard.allPieces.Count; i++)                                                      //è¿™é‡ŒCountæ˜¯ä¸æ˜¯ä¹Ÿè¦è®°çŠ¶æ€å‘¢ï¼Ÿå±€å†…å¦‚æœå¤åˆ¶ç²˜è´´æ£‹å­å‘¢
         {
             int index = i;
             Piece currentPiece = theBoard.allPieces[index];
@@ -61,14 +61,14 @@ public class StateManager : MonoBehaviour
         return currentState;
     }
 
-    //½«RedoºÍUndoËù¼Ç×´Ì¬¸¶ÖîÏÖÊµ
+    //å°†Redoå’ŒUndoæ‰€è®°çŠ¶æ€ä»˜è¯¸ç°å®
     public void Apply(GameState goldenState)
     {
         isRestoring = true;
 
         ui.energy = goldenState.energy;
         theBoard.ClearBoardCells();
-        for (int i = 0; i < theBoard.allPieces.Count; i++)                                                      //ÕâÀïCountÊÇ²»ÊÇÒ²Òª¼Ç×´Ì¬ÄØ£¿¾ÖÄÚÈç¹û¸´ÖÆÕ³ÌùÆå×ÓÄØ
+        for (int i = 0; i < theBoard.allPieces.Count; i++)                                                      //è¿™é‡ŒCountæ˜¯ä¸æ˜¯ä¹Ÿè¦è®°çŠ¶æ€å‘¢ï¼Ÿå±€å†…å¦‚æœå¤åˆ¶ç²˜è´´æ£‹å­å‘¢
         {
             int index = i;
             Piece currentPiece = theBoard.allPieces[index];
@@ -80,16 +80,17 @@ public class StateManager : MonoBehaviour
             if(currentPiece.placed)
             {
                 currentPiece.SetPlacedTransform(currentPiece.bx, currentPiece.bz, currentPiece.rot);
-                Vector2Int[] cells = theBoard.GetCells(currentPiece, currentPiece.bx, currentPiece.bz, currentPiece.rot);                                   //ÓÃÆå×Ó¼ÇÂ¼µÄĞÂÎ»ÖÃËã³ö¸ñ×Ó
+                Vector2Int[] cells = theBoard.GetCells(currentPiece, currentPiece.bx, currentPiece.bz, currentPiece.rot, out Vector2Int whatever);                                   //ç”¨æ£‹å­è®°å½•çš„æ–°ä½ç½®ç®—å‡ºæ ¼å­
                 for (int j = 0; j < cells.Length; j++)
                 {
-                    theBoard.board[cells[j].x, cells[j].y].piece = currentPiece; // ¼ÇÂ¼"Õâ¸ñ±»Æå×Ó p Õ¼¾İ"
-                    theBoard.board[cells[j].x, cells[j].y].slot = j;  // ¼ÇÂ¼"ÊÇ p µÄµÚ i ¸ö²ÛÎ»"
+                    theBoard.board[cells[j].x, cells[j].y].piece = currentPiece; // è®°å½•"è¿™æ ¼è¢«æ£‹å­ p å æ®"
+                    theBoard.board[cells[j].x, cells[j].y].slot = j;  // è®°å½•"æ˜¯ p çš„ç¬¬ i ä¸ªæ§½ä½"
                 }
             }
             else
             {
                 currentPiece.GoToTray();
+                currentPiece.SetVisualRotation(currentPiece.rot);
             }
 
             currentPiece.slotLetters = (int[])goldenState.pieces[index].theSlotLetters.Clone();
@@ -102,37 +103,22 @@ public class StateManager : MonoBehaviour
         }
 
         ui.RefreshAll();
+        CalcuNow();
 
         isRestoring = false;
     }
 
     public void ArchiveState(GameState platinumState)
     {
-        //Ò»¶Î²Ù×÷½×¶ÎµÄ×îÖÕ×´Ì¬¹éµµ£¨ÔİÊ±²»×ö£©
+        //ä¸€æ®µæ“ä½œé˜¶æ®µçš„æœ€ç»ˆçŠ¶æ€å½’æ¡£ï¼ˆæš‚æ—¶ä¸åšï¼‰
     }
 
     public void EnterNextStage()
     {
-        //½øÈëÏÂÒ»¸ö½×¶Î£¨»¹Ã»ÏëºÃ£©
+        //è¿›å…¥ä¸‹ä¸€ä¸ªé˜¶æ®µï¼ˆè¿˜æ²¡æƒ³å¥½ï¼‰
     }
 
-    //ÔÚ×öÁËÒ»¸öÓĞĞ§±ä»¯Ö®ºó£¬½«RedoÏûµô£¬UndoÕ»ĞÂ¼ÇÂ¼Ò»¸ö×´Ì¬¡ª¡ª²»ÔÙÖ±½Óµ÷ÓÃ£¬ÓÉPushTemp¹ıÂË¡£
-    public void Record()
-    {
-        if (isRestoring) return;
-        undoStack.Add(Capture());
-        
-        if (undoStack.Count> MAX_HISTORY)
-        {
-            undoStack.RemoveAt(0);
-        }
-        redoStack.Clear();
-
-        ui.undoBtn.interactable = true;
-        ui.redoBtn.interactable = false;
-    }
-
-    //UndoÒ»´Î£¬½«ÏÖ×´Ì¬ÍÆµ½RedoÕ»ÄÚ£¬½«UndoÕ»¶ÁÈ¡Ò»Î»²¢ÏûÈ¥
+    //Undoä¸€æ¬¡ï¼Œå°†ç°çŠ¶æ€æ¨åˆ°Redoæ ˆå†…ï¼Œå°†Undoæ ˆè¯»å–ä¸€ä½å¹¶æ¶ˆå»
     public void Undo()
     {
         if (undoStack.Count == 0) return;
@@ -144,7 +130,7 @@ public class StateManager : MonoBehaviour
         if (undoStack.Count == 0)   ui.undoBtn.interactable = false;
     }
 
-    //RedoÒ»´Î£¬½«ÏÈ×´Ì¬ÍÆ»ØUndoÕ»ÄÚ£¬½«RedoÕ»¶ÁÈ¡Ò»Î»²¢ÏûÈ¥
+    //Redoä¸€æ¬¡ï¼Œå°†å…ˆçŠ¶æ€æ¨å›Undoæ ˆå†…ï¼Œå°†Redoæ ˆè¯»å–ä¸€ä½å¹¶æ¶ˆå»
     public void Redo()
     {
         if(redoStack.Count == 0) return;
@@ -166,7 +152,7 @@ public class StateManager : MonoBehaviour
     {
         bool judging = true;
         if (a.energy != b.energy) return false;
-        //if (a.pieces.Length != b.pieces.Length) return false;             //Ä¿Ç°Ã»ÓĞÕâ¸öÇé¿ö£¬Õâ¸öÔÚ²Ù×÷½×¶ÎÍâ
+        //if (a.pieces.Length != b.pieces.Length) return false;             //ç›®å‰æ²¡æœ‰è¿™ä¸ªæƒ…å†µï¼Œè¿™ä¸ªåœ¨æ“ä½œé˜¶æ®µå¤–
 
         for(int i=0;i<a.pieces.Length; i++)
         {
@@ -177,12 +163,13 @@ public class StateManager : MonoBehaviour
             if (aa.rot != bb.rot) return false;
             if (aa.ifPlaced && (aa.bx != bb.bx || aa.bz != bb.bz)) return false;
 
-            //Ä¿Ç°Ã»¿´µ½»á½ö¸øÆäËûÊıÖµ´øÀ´²»±äµÄ¸Ä¶¯
+            //ç›®å‰æ²¡çœ‹åˆ°ä¼šä»…ç»™å…¶ä»–æ•°å€¼å¸¦æ¥ä¸å˜çš„æ”¹åŠ¨
         }
         return judging;
     }
 
-    //½«´¦ÀíÁ½¸ö²»Í¬µÄ»Ø³·¡ª¡ªÍÏ¶¯Ê§°Ü»Ø³·ºÍÁ½×´Ì¬Ò»ÖÂ»Ø³·¡£
+    //åœ¨åšäº†ä¸€ä¸ªæœ‰æ•ˆå˜åŒ–ä¹‹åï¼Œå°†Redoæ¶ˆæ‰ï¼ŒUndoæ ˆæ–°è®°å½•ä¸€ä¸ªçŠ¶æ€â€”â€”ä¸å†ç›´æ¥è°ƒç”¨ï¼Œç”±PushTempè¿‡æ»¤ã€‚
+    //å°†å¤„ç†ä¸¤ä¸ªä¸åŒçš„å›æ’¤â€”â€”æ‹–åŠ¨å¤±è´¥å›æ’¤å’Œä¸¤çŠ¶æ€ä¸€è‡´å›æ’¤ã€‚
     public void PushTemp()
     {
         if (isRestoring) return;
@@ -191,7 +178,7 @@ public class StateManager : MonoBehaviour
         {
             GameState checkState = Capture();
             bool sameOrNot = SameState(tempState, checkState);
-            Debug.Log(sameOrNot);
+            //Debug.Log(sameOrNot);
             if (sameOrNot)
             {
                 CancelPending();
@@ -199,6 +186,7 @@ public class StateManager : MonoBehaviour
             }
         }
 
+        if (tempState == null) return;
         undoStack.Add(tempState);
         if (undoStack.Count > MAX_HISTORY)
         {
@@ -206,6 +194,9 @@ public class StateManager : MonoBehaviour
         }
         redoStack.Clear();
         CancelPending();
+
+        RefreshStatePresentation();
+        CalcuNow();
 
         ui.undoBtn.interactable = true;
         ui.redoBtn.interactable = false;
@@ -218,12 +209,29 @@ public class StateManager : MonoBehaviour
         tempState = null;
     }
 
-    //Âò¶¨ÀëÊÖ»·½Ú£¬Ò»¶Î²Ù×÷½×¶ÎµÄ½áÊø£¬Çå¿ÕË«Õ»
+    //ä¹°å®šç¦»æ‰‹ç¯èŠ‚ï¼Œä¸€æ®µæ“ä½œé˜¶æ®µçš„ç»“æŸï¼Œæ¸…ç©ºåŒæ ˆ
     public void Submit()
     {
         undoStack.Clear();
         redoStack.Clear();
         ArchiveState(Capture());
         EnterNextStage();
+    }
+
+    public void CalcuNow()
+    {
+        //è°ƒç”¨BFSä»¥é¢„è§ˆå¾—åˆ†
+        ui.RefreshCalculation();
+    }
+
+    // æ‰€æœ‰å·²æäº¤æˆ–æ¢å¤çš„çŠ¶æ€éƒ½ä»è¿™é‡Œç»Ÿä¸€åŒæ­¥æ£‹å­è§†è§‰å’Œ UIã€‚
+    // Piece.Awake ä¸ SaultUI.Start ä¸­çš„åˆå§‹åŒ–åˆ·æ–°ä»ä¿æŒåŸæ ·ã€‚
+    void RefreshStatePresentation()
+    {
+        foreach (Piece piece in theBoard.allPieces)
+        {
+            if (piece != null) piece.RefreshVisuals();
+        }
+        ui.RefreshAll();
     }
 }
