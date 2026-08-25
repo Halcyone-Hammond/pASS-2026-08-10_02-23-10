@@ -63,6 +63,7 @@ public class Piece : MonoBehaviour
 
     Renderer[] topRends = new Renderer[4]; // 4 个槽位顶面的渲染器 (换字母色用)
     TMP_Text[] labels = new TMP_Text[4];   // 4 个槽位的文字标签 (显示 S/A/U/L)
+    Transform visualRoot;                  // 只负责视觉旋转/平移；Piece 根物体始终保留为逻辑锚点
 
     // 形状名字符串 (给 UI 显示用), 如 "L"、"T"
     public string shapeName { get { return shape.ToString(); } }
@@ -108,9 +109,41 @@ public class Piece : MonoBehaviour
         {
             trayPosition = transform.position; // 托盘位置 = 初始位置 (编辑器里放好棋子后, 运行时记住它)
         }
+        EnsureVisualRoot();
         EnsureVisualData();
         EnsureTmpLabels();
+        SetVisualRotation(rot);
         RefreshVisuals(); 
+    }
+
+    // 将棋子的几何外观集中到 VisualRoot 下。
+    // 旧场景中的 Base/Top/Label 可能仍直接挂在 Piece 下，这里会在运行时自动迁移，
+    // 因此不需要手动重新搭场景层级。
+    void EnsureVisualRoot()
+    {
+        if (visualRoot == null)
+        {
+            visualRoot = transform.Find("VisualRoot");
+            if (visualRoot == null)
+            {
+                GameObject root = new GameObject("VisualRoot");
+                visualRoot = root.transform;
+                visualRoot.SetParent(transform, false);
+            }
+        }
+
+        // 倒序遍历，避免 SetParent 改变 childCount 后漏掉子物体。
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = transform.GetChild(i);
+            if (child == visualRoot) continue;
+            if (child.name.StartsWith("Base") ||
+                child.name.StartsWith("Top_") ||
+                child.name.StartsWith("Label_"))
+            {
+                child.SetParent(visualRoot, false);
+            }
+        }
     }
 
     void EnsureVisualData()
@@ -124,7 +157,7 @@ public class Piece : MonoBehaviour
         bool fullHouse = true;
         for(int i = 0; i < 4;i++)
         {
-            Transform top = transform.Find("Top_" + i.ToString());
+            Transform top = visualRoot.Find("Top_" + i.ToString());
             if (top != null)
             {
                 topRends[i] = top.GetComponent<Renderer>();
@@ -138,14 +171,14 @@ public class Piece : MonoBehaviour
 
     void EnsureTmpLabels()
     {
-        Vector2Int[] offs = GetOffsets(0, out Vector2Int shifty); // 用基础布局 (rot 0) 的偏移定位子物体 
+        Vector2Int[] offs = GetOffsets(0, out _); // 用基础布局 (rot 0) 的偏移定位子物体
         for (int i = 0; i < 4; i++)
         {
             Vector3 labelPos = new Vector3(offs[i].x, 0f, offs[i].y);
 
             GameObject go = new GameObject($"Label_{i}",typeof(RectTransform));
 
-            go.transform.SetParent(transform, false);
+            go.transform.SetParent(visualRoot, false);
             go.transform.localPosition =
                 labelPos + new Vector3(0f, 0.37f, 0f);
             go.transform.localRotation =
@@ -194,14 +227,20 @@ public class Piece : MonoBehaviour
         //if(rot == null) rot = 0;
         //Debug.Log($"GoToTray: {shapeName} -> {trayPosition}");
         transform.position = trayPosition;
-        SetVisualRotation(0);
+        SetVisualRotation(rot);
     }
 
-    // 设置物体的世界旋转: 绕 Y 轴转 r*90 度。
-    // 视觉上的 4 个槽位是物体的子物体, 会跟着物体一起转, 所以"转物体 = 转槽位"。
+    // 只旋转视觉层，不再旋转/移动 Piece 根物体。
+    // GetOffsets 通过 rawOffset - minOffset 把逻辑坐标归零，
+    // 因此 VisualRoot 必须使用 -minOffset 做同样的补偿，才能与 board 占位重合。
     public void SetVisualRotation(int r)
     {
-        transform.rotation = Quaternion.Euler(0f, r * 90f, 0f);
+        EnsureVisualRoot();
+        GetOffsets(r, out Vector2Int minOffset);
+
+        transform.localRotation = Quaternion.identity;
+        visualRoot.localRotation = Quaternion.Euler(0f, r * 90f, 0f);
+        visualRoot.localPosition = new Vector3(-minOffset.x, 0f, -minOffset.y);
     }
 
     // 放置后同步场景位置: 锚点格子 -> 世界坐标, 并应用旋转。
@@ -240,7 +279,8 @@ public class Piece : MonoBehaviour
     // 全部做成当前物体的子物体 (SetParent), 所以会跟着棋子一起移动/旋转。
     void BuildVisual()
     {
-        Vector2Int[] offs = GetOffsets(0, out Vector2Int shifty); // 用基础布局 (rot 0) 的偏移定位子物体
+        EnsureVisualRoot();
+        Vector2Int[] offs = GetOffsets(0, out _); // 用基础布局 (rot 0) 的偏移定位子物体
         for (int i = 0; i < 4; i++)
         {
             Vector3 lp = new Vector3(offs[i].x, 0f, offs[i].y); // 槽位局部坐标 (y 稍后加)
@@ -253,7 +293,7 @@ public class Piece : MonoBehaviour
 
             // 字母标签: 传统 TextMesh (3D 世界里的文字, 不是 UI 文字), 平躺在顶面上
             GameObject lb = new GameObject($"Label_{i}");
-            lb.transform.SetParent(transform, false);
+            lb.transform.SetParent(visualRoot, false);
             lb.transform.localPosition = lp + new Vector3(0f, 0.37f, 0f); // 浮在顶面上方
             lb.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 绕 X 转 90°, 让文字面朝上
         }
@@ -264,9 +304,10 @@ public class Piece : MonoBehaviour
     // 并去掉它自带的 Collider (本原型只用棋盘那一个大 collider 做射线)。
     public GameObject Prim(string name, Vector3 localPos, Vector3 scale, Material mat)
     {
+        EnsureVisualRoot();
         GameObject g = GameObject.CreatePrimitive(PrimitiveType.Cube);
         g.name = name;
-        g.transform.SetParent(transform, false);
+        g.transform.SetParent(visualRoot, false);
         g.transform.localPosition = localPos;
         g.transform.localScale = scale;
         Collider c = g.GetComponent<Collider>();

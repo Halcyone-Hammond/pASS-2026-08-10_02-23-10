@@ -110,7 +110,8 @@ public class InputController : MonoBehaviour
         {
             Piece p = board.allPieces[i];
             if (p == null || p.placed) continue; // 只找未放置的
-            Vector2Int[] offs = p.GetOffsets(0, out Vector2Int shifty); // 槽位偏移 (格子单位)
+            // 托盘棋子也可能已旋转，命中区域必须使用当前视觉对应的逻辑偏移。
+            Vector2Int[] offs = p.GetOffsets(p.rot, out _); // 槽位偏移 (格子单位)
             for (int j = 0; j < offs.Length; j++)
             {
                 // 槽位的世界坐标 = 棋子位置 + 偏移 (棋盘坐标轴与 XZ 平面一致, 可直接相加)
@@ -192,12 +193,12 @@ public class InputController : MonoBehaviour
             // 棋子当前位置 -> 最近格子 -> 尝试放置 (内部会做越界/重叠校验)
             if (boundIn)
             {
-                ok = board.TryPlace(selected, x, z, selected.rot, out Vector2Int whatever);
+                ok = board.TryPlace(selected, x, z, selected.rot);
                 // 放不下且原来就在棋盘上 -> 放回原位
                 if (!ok && oriPlaced)
                 {
                     stateManager.CancelPending();
-                    ok = board.TryPlace(selected, origX, origZ, origRot, out Vector2Int whateveris);
+                    ok = board.TryPlace(selected, origX, origZ, origRot);
                 }
                 else if (!ok && !oriPlaced)
                 {

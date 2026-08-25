@@ -80,7 +80,7 @@ public class StateManager : MonoBehaviour
             if(currentPiece.placed)
             {
                 currentPiece.SetPlacedTransform(currentPiece.bx, currentPiece.bz, currentPiece.rot);
-                Vector2Int[] cells = theBoard.GetCells(currentPiece, currentPiece.bx, currentPiece.bz, currentPiece.rot, out Vector2Int whatever);                                   //用棋子记录的新位置算出格子
+                Vector2Int[] cells = theBoard.GetCells(currentPiece, currentPiece.bx, currentPiece.bz, currentPiece.rot);                                   //用棋子记录的新位置算出格子
                 for (int j = 0; j < cells.Length; j++)
                 {
                     theBoard.board[cells[j].x, cells[j].y].piece = currentPiece; // 记录"这格被棋子 p 占据"

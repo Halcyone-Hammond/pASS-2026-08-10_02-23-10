@@ -274,10 +274,10 @@ public class Board : MonoBehaviour
 
     // 计算: 某棋子放在 (px,pz) 且旋转为 rot 时, 它的 4 个槽位分别占据哪 4 个格子。
     // 先问棋子要它的 4 个"槽位偏移" (见 Piece.GetOffsets), 再整体加上锚点坐标。
-    public Vector2Int[] GetCells(Piece p, int px, int pz, int rot, out Vector2Int shifts)
+    public Vector2Int[] GetCells(Piece p, int px, int pz, int rot)
     {
-        Vector2Int[] offs = p.GetOffsets(rot, out Vector2Int shifty);        // 4 个槽位相对锚点的偏移 (格子单位)
-        shifts = shifty;
+        // 视觉归零偏移由 Piece.SetVisualRotation 自己处理；Board 只关心最终逻辑格子。
+        Vector2Int[] offs = p.GetOffsets(rot, out _);        // 4 个槽位相对锚点的偏移 (格子单位)
         Vector2Int[] res = new Vector2Int[offs.Length]; // 存放结果的数组
         for (int i = 0; i < offs.Length; i++)
             res[i] = new Vector2Int(px + offs[i].x, pz + offs[i].y);
@@ -292,7 +292,7 @@ public class Board : MonoBehaviour
     {
         GhostlyRecover();
  
-        Vector2Int[] cells = GetCells(p, px, pz, rot, out Vector2Int whatever); // 先算出要占哪 4 格
+        Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
@@ -347,10 +347,9 @@ public class Board : MonoBehaviour
     // 尝试把棋子 p 放到 (px,pz), 旋转 rot。
     // 规则: 全部 4 格必须在界内 (越界拒绝) 且全为空 (重叠拒绝)。
     // 失败时不做任何修改 (调用方可以安全回退); 成功时更新数组 + 棋子的坐标/旋转 + 场景位置。
-    public bool TryPlace(Piece p, int px, int pz, int rot, out Vector2Int shifty)
+    public bool TryPlace(Piece p, int px, int pz, int rot)
     {
-        Vector2Int[] cells = GetCells(p, px, pz, rot, out Vector2Int shift); // 先算出要占哪 4 格
-        shifty = shift;
+        Vector2Int[] cells = GetCells(p, px, pz, rot); // 先算出要占哪 4 格
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;
@@ -375,7 +374,7 @@ public class Board : MonoBehaviour
     public void RemovePiece(Piece p)
     {
         if (!p.placed) return; // 本来就没在棋盘上, 直接返回
-        Vector2Int[] cells = GetCells(p, p.bx, p.bz, p.rot, out Vector2Int whatever); // 用棋子记录的旧位置算出格子
+        Vector2Int[] cells = GetCells(p, p.bx, p.bz, p.rot); // 用棋子记录的旧位置算出格子
         for (int i = 0; i < cells.Length; i++)
         {
             int cx = cells[i].x, cz = cells[i].y;

@@ -202,16 +202,13 @@ public class SaultUI : MonoBehaviour
             {
                 int origX = current.bx; int origZ = current.bz; int origRot = current.rot;
                 board.RemovePiece(current);
-                bool rotated = board.TryPlace(current, current.bx, current.bz, nr, out Vector2Int shifts);
+                bool rotated = board.TryPlace(current, current.bx, current.bz, nr);
                 if (!rotated)
                 {
-                    board.TryPlace(current, origX, origZ, origRot, out Vector2Int shiftsWrong);
+                    board.TryPlace(current, origX, origZ, origRot);
                     ShowTempText(RotateText, "nada");
                     stateManager.CancelPending();
-                }
-                else
-                {
-                        current.transform.position -= new Vector3(shifts.x, 0, shifts.y);
+                    return; // Pending 已取消，不能继续 PushTemp，否则会把 null 状态压入 Undo 栈
                 }
             }
         }
@@ -270,7 +267,7 @@ public class SaultUI : MonoBehaviour
     void RefreshSlotButtons()
     {
         if (current == null) return;
-        Vector2Int[] offs = current.GetOffsets(current.rot, out Vector2Int shifty);
+        Vector2Int[] offs = current.GetOffsets(current.rot, out _);
         for(int i = 0; i < offs.Length; i++)
         {
             Vector2Int pos = offs[i];
