@@ -3,7 +3,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems; // EventSystem: 清按钮焦点用 (防止 Space 键重复触发按钮)
 using UnityEngine.UI;          // 所有 UI 组件: Text / Button / Image / LayoutGroup ...
-using static UnityEditor.ShaderData;
 
 // ============================================================
 // SaultUI —— S.A.U.L. 配置面板 (右侧 UI)
@@ -267,8 +266,11 @@ public class SaultUI : MonoBehaviour
     void RefreshSlotButtons()
     {
         if (current == null) return;
+
+        panel.gameObject.GetComponent<MatrixSelect>().buttonOff();
         Vector2Int[] offs = current.GetOffsets(current.rot, out _);
-        for(int i = 0; i < offs.Length; i++)
+        
+        for (int i = 0; i < offs.Length; i++)
         {
             Vector2Int pos = offs[i];
             int slotLetter = current.slotLetters[i];

@@ -233,5 +233,6 @@ public class StateManager : MonoBehaviour
             if (piece != null) piece.RefreshVisuals();
         }
         ui.RefreshAll();
+        
     }
 }

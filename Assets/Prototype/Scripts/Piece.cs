@@ -25,7 +25,7 @@ public class Piece : MonoBehaviour
 {
     // 字母编号常量: 用 int 而不是 char, 方便直接当数组下标用
     public const int S = 0, A = 1, U = 2, L = 3, Om = 7;
-    public static readonly string Letters = "SAUL"; // 编号 -> 字符 的查表 (0=S, 1=A, ...)
+    //public static readonly string Letters = "SAUL"; // 编号 -> 字符 的查表 (0=S, 1=A, ...)
     [SerializeField] TMP_FontAsset FontAsset; //字体资源 (在编辑器里拖入)
 
     // 每种形状的"基础布局" (旋转 0 度时): 4 个槽位的局部坐标 (x, z), 单位 = 1 格。
@@ -35,6 +35,9 @@ public class Piece : MonoBehaviour
     //   I 形: 一长条四格
     //   O 形: 2x2 方块
     // Vector2Int = 整数二维向量 (x, y), 这里把 y 当 z 用
+
+
+
     static readonly Vector2Int[][] BASE = new Vector2Int[4][]
     {
         new Vector2Int[] { new Vector2Int(0,0), new Vector2Int(1,0), new Vector2Int(2,0), new Vector2Int(2,1) }, // L
@@ -93,7 +96,7 @@ public class Piece : MonoBehaviour
 
         shift = new Vector2Int(minx, miny);
         // 每个点减去最小值: 形状完全不变, 但坐标变成非负, 锚点落在 (0,0)
-        for (int i = 0; i < pts.Length; i++) pts[i] -= shift;
+        for (int i = 0; i < pts.Length; i++) pts[i] -= shift;           //偏移量是个逻辑值
         return pts;
     }
 
@@ -112,7 +115,7 @@ public class Piece : MonoBehaviour
         EnsureVisualRoot();
         EnsureVisualData();
         EnsureTmpLabels();
-        SetVisualRotation(rot);
+        SetVisualRotation(rot);                 //按照自己记录确定好位置
         RefreshVisuals(); 
     }
 
@@ -132,7 +135,7 @@ public class Piece : MonoBehaviour
             }
         }
 
-        // 倒序遍历，避免 SetParent 改变 childCount 后漏掉子物体。
+        // 倒序遍历，避免 SetParent 改变 childCount 后漏掉子物体。每个子物体都有这个。
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
             Transform child = transform.GetChild(i);
@@ -258,6 +261,8 @@ public class Piece : MonoBehaviour
     {
         transform.localScale = sel ? new Vector3(1.06f, 1.06f, 1.06f) : Vector3.one;
     }
+
+    //视觉物件均用visualRoot
 
     // 刷新 4 个槽位的显示: 顶面换成该槽位字母的颜色, 标签文字换成该字母。
     // 在"字母被重新分配"后调用, 保证视觉跟着数据走 (数据驱动视觉)。

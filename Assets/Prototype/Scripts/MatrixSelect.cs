@@ -148,16 +148,21 @@ public class MatrixSelect : MonoBehaviour
         return;
     }
 
-    public void buttonOff(int x, int z)
+    public void buttonOff()
     {
-        int buttonIndex = x + z * 4;
-        if (buttonIndex < 0 || buttonIndex >= buttons.Length) return;
-        buttonDatas[buttonIndex].colour = Color.lightGray;
-        buttonDatas[buttonIndex].letter = 0;
-        buttonDatas[buttonIndex].value = 0;
-        buttonDatas[buttonIndex].slot = -1;
+        for(int i = 0; i < buttons.Length; i++)
+        {
+            if (buttons[i] == null) continue;
+            int buttonIndex = i;
+            buttonDatas[buttonIndex].colour = Color.lightGray;
+            buttonDatas[buttonIndex].letter = 0;
+            buttonDatas[buttonIndex].value = 0;
+            buttonDatas[buttonIndex].slot = -1;
+            buttons[buttonIndex].gameObject.SetActive(false);
+        }
+        
         buttonUpdate();
-        buttons[buttonIndex].gameObject.SetActive(false);
+        
         return;
     }
 

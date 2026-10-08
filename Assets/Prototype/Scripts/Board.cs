@@ -278,7 +278,7 @@ public class Board : MonoBehaviour
     {
         // 视觉归零偏移由 Piece.SetVisualRotation 自己处理；Board 只关心最终逻辑格子。
         Vector2Int[] offs = p.GetOffsets(rot, out _);        // 4 个槽位相对锚点的偏移 (格子单位)
-        Vector2Int[] res = new Vector2Int[offs.Length]; // 存放结果的数组
+        Vector2Int[] res = new Vector2Int[offs.Length];     // 存放结果的数组
         for (int i = 0; i < offs.Length; i++)
             res[i] = new Vector2Int(px + offs[i].x, pz + offs[i].y);
         return res;
