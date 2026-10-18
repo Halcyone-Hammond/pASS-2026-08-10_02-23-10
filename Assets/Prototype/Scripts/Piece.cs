@@ -36,6 +36,9 @@ public class Piece : MonoBehaviour
     //   O 形: 2x2 方块
     // Vector2Int = 整数二维向量 (x, y), 这里把 y 当 z 用
 
+    public PieceProto prototype;        //棋子原型数据实验
+    string id, nameName; //棋子ID
+    Vector2Int position; //棋子在棋盘上的位置，目前不知怎么实现
 
 
     static readonly Vector2Int[][] BASE = new Vector2Int[4][]
@@ -53,8 +56,8 @@ public class Piece : MonoBehaviour
     public int bx, bz;    // 锚点所在的格子坐标 (只有 placed 时才有效)
     public bool placed;   // 是否已放到棋盘上 (false = 在托盘里或正在被拖动)
 
-    public int[] slotLetters = new int[] { 0, 1, 2, 3 }; // 槽位 -> 字母 (S=0,A=1,U=2,L=3)，根据指针对应字母
-    public int[] attrValues = new int[] { 1, 1, 1, 1 };  // 字母 -> 数值 (初始全 1)，根据字母对应
+    public int[] slotLetters; // 槽位 -> 字母 (S=0,A=1,U=2,L=3)，根据指针对应字母
+    public int[] attrValues = new int[] { 1, 1, 1, 1 };  // 槽位 -> 数值 (初始全 1)，现正改为根据槽位对应数值
     public int[] slotPerks = new int[] { 0, 0, 0, 0 };      //该棋子拥有的特殊技能，后续需要注册新棋子和物品栏
     public int[] attrValues2 = new int[] { 1, 1, 1, 1 };    //棋子技能配合数值达成自定义
 
@@ -65,11 +68,19 @@ public class Piece : MonoBehaviour
     [SerializeField] Vector3 trayPosition; // 未放置时停靠的托盘位置 (场景搭建时指定)
 
     Renderer[] topRends = new Renderer[4]; // 4 个槽位顶面的渲染器 (换字母色用)
-    TMP_Text[] labels = new TMP_Text[4];   // 4 个槽位的文字标签 (显示 S/A/U/L)
+    TMP_Text[] labels;   // 4 个槽位的文字标签 (显示 S/A/U/L)
     Transform visualRoot;                  // 只负责视觉旋转/平移；Piece 根物体始终保留为逻辑锚点
 
     // 形状名字符串 (给 UI 显示用), 如 "L"、"T"
-    public string shapeName { get { return shape.ToString(); } }
+    public string shapeName
+    {
+        get 
+        { 
+            return prototype != null
+            ? prototype.pieceName
+                : shape.ToString();
+        }
+    }
 
     // ---- 旋转与槽位几何 -----------------------------------------------------------
     // 返回该形状在旋转 r 下的 4 个槽位偏移 (棋盘格子坐标, 锚点 = (0,0))。
@@ -78,7 +89,21 @@ public class Piece : MonoBehaviour
     // 旋转公式 (x, z) -> (z, -x) 是 90° 顺时针旋转的标准数学。
     public Vector2Int[] GetOffsets(int r, out Vector2Int shift)
     {
-        Vector2Int[] src = BASE[(int)shape];   // 取出这种形状的基础布局
+        Vector2Int[] src;   // 取出这种形状的基础布局，有prototype就用prototype，没有就用原方案。
+
+        if (prototype != null)
+        {
+            src = new Vector2Int[prototype.cells.Count];
+            for (int i = 0; i < src.Length; i++)
+            {
+                src[i] = prototype.cells[i].offset;
+            }
+        }
+        else
+        {
+            src = BASE[(int)shape];
+        }
+
         Vector2Int[] pts = new Vector2Int[src.Length];
         for (int i = 0; i < src.Length; i++)
         {
@@ -100,15 +125,50 @@ public class Piece : MonoBehaviour
         return pts;
     }
 
+    // ---- 字母 / 数值 的赋值窗口 ---------------------------------------------------
+    void loadProtoData()
+    {
+        if (prototype == null) return;
+
+        if(prototype.cells.Count !=4)
+            throw new System.InvalidOperationException("Prototype must have exactly 4 cells."); //实验范围——如果超了报错。
+
+        foreach (CellDefinition cell in prototype.cells)
+        {
+            int letter = (int)cell.attribute;
+
+            if(letter <0 || letter >= 4)
+            {
+                throw new System.InvalidOperationException($"Invalid attribute {cell.attribute} in prototype.");//实验范围，如果有不对属性的就暂时不加入。
+            }
+        }
+
+        slotLetters = new int[prototype.cells.Count];
+        attrValues = new int[prototype.cells.Count];            // 初始化字母分配和数值，暂使用当前的系统
+
+        for(int i = 0; i< prototype.cells.Count; i++)
+        {
+            CellDefinition cell = prototype.cells[i];
+            int letter = (int)cell.attribute;
+            slotLetters[i] = letter;
+            attrValues[i] = cell.iniValue;
+        }
+    }
+
+
     // ---- 字母 / 数值 的读写接口 ---------------------------------------------------
     public int LetterAt(int slot) { return slotLetters[slot]; }          // 槽位 -> 字母
-    public int ValueOf(int letter) { return attrValues[letter]; }        // 字母 -> 数值
-    public void SetValue(int letter, int v) { attrValues[letter] = v; }  // 设置某字母的数值
+    public int ValueOf(int slot) { return attrValues[slot]; }        // 槽位 -> 数值
+    public void SetValue(int slot, int v) { attrValues[slot] = v; }  // 设置某槽位的数值
 
     private void Awake()
     {
+        loadProtoData();
+        id = prototype.pieceID;
+        name = prototype.pieceName;
+        labels = new TMP_Text[prototype.cells.Count];
 
-        if(!placed)
+        if (!placed)
         {
             trayPosition = transform.position; // 托盘位置 = 初始位置 (编辑器里放好棋子后, 运行时记住它)
         }
@@ -116,6 +176,8 @@ public class Piece : MonoBehaviour
         EnsureVisualData();
         EnsureTmpLabels();
         SetVisualRotation(rot);                 //按照自己记录确定好位置
+        
+        //位置代换未知
         RefreshVisuals(); 
     }
 
@@ -213,12 +275,11 @@ public class Piece : MonoBehaviour
         shape = s;
         rot = 0;          // 初始不旋转
         placed = false;   // 初始在托盘里
-        slotLetters = new int[] { 0, 1, 2, 3 }; // 槽位 0..3 依次放 S A U L
-        attrValues = new int[] { 1, 1, 1, 1 };  // 四个字母的数值初始都是 1
         matDark = dark;
         matLight = light;
         matTints = tints;
         trayPosition = trayPos;
+        loadProtoData();// 在初始化也加载原型数据，覆盖默认的字母分配和数值
         BuildVisual();  // 生成 4 个槽位的立体外观
         GoToTray();     // 摆到托盘位置
     }
@@ -244,6 +305,12 @@ public class Piece : MonoBehaviour
         transform.localRotation = Quaternion.identity;
         visualRoot.localRotation = Quaternion.Euler(0f, r * 90f, 0f);
         visualRoot.localPosition = new Vector3(-minOffset.x, 0f, -minOffset.y);
+
+        for (int i = 0; i < labels.Length; i++)
+        {
+            if(labels[i] != null)
+                labels[i].transform.rotation = Quaternion.Euler(90f, 0f, 0f);       // 保证文字朝向
+        }
     }
 
     // 放置后同步场景位置: 锚点格子 -> 世界坐标, 并应用旋转。
@@ -275,7 +342,7 @@ public class Piece : MonoBehaviour
             if (labels[i] != null)
             {
                 int theLetter = slotLetters[i];
-                labels[i].text = attrValues[theLetter].ToString(); // 按数值换标签文字
+                labels[i].text = ValueOf(i).ToString(); // 按数值换标签文字，正改为槽位导向数值
             }
         }
     }

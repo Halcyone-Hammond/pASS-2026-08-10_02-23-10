@@ -5793,6 +5793,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Piece
   FontAsset: {fileID: 11400000, guid: 67603de46c90dc140b25ecab3719b99f, type: 2}
+  prototype: {fileID: 11400000, guid: 346d9574174b0094ca4c0bcb4d66f109, type: 2}
   shape: 0
   board: {fileID: 601391101}
   rot: 0
@@ -5985,6 +5986,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Piece
   FontAsset: {fileID: 11400000, guid: 67603de46c90dc140b25ecab3719b99f, type: 2}
+  prototype: {fileID: 11400000, guid: d4b1a307e5dcfa54db6151683541c1ac, type: 2}
   shape: 3
   board: {fileID: 601391101}
   rot: 0
@@ -6314,6 +6316,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Piece
   FontAsset: {fileID: 11400000, guid: 67603de46c90dc140b25ecab3719b99f, type: 2}
+  prototype: {fileID: 11400000, guid: ef1a2d3748005dc4a9c14ebe20c6ac8f, type: 2}
   shape: 1
   board: {fileID: 601391101}
   rot: 0
@@ -7293,6 +7296,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Piece
   FontAsset: {fileID: 11400000, guid: 67603de46c90dc140b25ecab3719b99f, type: 2}
+  prototype: {fileID: 11400000, guid: 1fcc3f4f0d38e844ba421cf8fd27bac2, type: 2}
   shape: 2
   board: {fileID: 601391101}
   rot: 0

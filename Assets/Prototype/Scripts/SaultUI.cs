@@ -131,10 +131,9 @@ public class SaultUI : MonoBehaviour
         stateManager.Pending(false);
         //只动字母，根据字母寻址数据的话，字母动，数据的入口就动——数据跟着动。
         (current.slotLetters[a], current.slotLetters[b]) = (current.slotLetters[b],current.slotLetters[a]);
-        int aa = current.slotLetters[a];
-        int bb = current.slotLetters[b];
-        current.attrValues[aa] /= 2;
-        current.attrValues[bb] /= 2;                    //惩罚措施
+        (current.attrValues[a], current.attrValues[b]) = (current.attrValues[b], current.attrValues[a]);
+        current.attrValues[a] /= 2;
+        current.attrValues[b] /= 2;                    //惩罚措施
         stateManager.PushTemp();
     }    
 
@@ -145,12 +144,12 @@ public class SaultUI : MonoBehaviour
         if (current == null || energy < 1 || selectedSlot < 0 || selectedSlot >= 4) return; // 没选棋子 / 没能量 / 没选槽位 -> 不响应
         int theLetter = current.slotLetters[selectedSlot]; // 当前选中槽位的字母 (0=S,1=A,2=U,3=L)
 
-        int oldValue = current.ValueOf(theLetter);
+        int oldValue = current.ValueOf(selectedSlot);      //正调整成槽位导向
         int newValue =  Mathf.Clamp(oldValue + delta, 0-MaxValue, MaxValue);   // 限制在 -10~10
 
         if (newValue == oldValue) return;                                                           //动不了了，已在边界 (-10 或 10), 不消耗能量
         stateManager.Pending(false);
-        current.SetValue(theLetter, newValue);
+        current.SetValue(selectedSlot, newValue);          //正调整成槽位导向
         energy--; // 每次 +1/-1 消耗 1 能量
         stateManager.PushTemp();
         ClearFocus();
@@ -274,7 +273,7 @@ public class SaultUI : MonoBehaviour
         {
             Vector2Int pos = offs[i];
             int slotLetter = current.slotLetters[i];
-            int slotValue = current.ValueOf(slotLetter);
+            int slotValue = current.ValueOf(i);
             Color slotColor = current.GetComponent<Piece>().matTints[slotLetter].color;                                 //matTint始终按照字母顺序排列，0=S,1=A,2=U,3=L
             panel.gameObject.GetComponent<MatrixSelect>().buttonOn(pos.x, pos.y, i, slotValue, slotLetter, slotColor);
         }
@@ -289,7 +288,7 @@ public class SaultUI : MonoBehaviour
         int theLetter = current.slotLetters[selectedSlot];
         if (valueText != null) 
         {
-            int theValue = current.ValueOf(theLetter);
+            int theValue = current.ValueOf(selectedSlot);
             valueText.text = theValue.ToString();
             if(valueJudge != null)
             {

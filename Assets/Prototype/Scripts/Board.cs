@@ -532,7 +532,7 @@ public class Board : MonoBehaviour
             BoardCell bc = pathThrough[i];
             if (bc.piece != null)
             {
-                int absValue = Mathf.Abs(bc.piece.ValueOf(bc.piece.slotLetters[bc.slot]));
+                int absValue = Mathf.Abs(bc.piece.ValueOf(bc.slot));                    //正调整为槽位定向
                 connectingPts += absValue;
             }
         }
